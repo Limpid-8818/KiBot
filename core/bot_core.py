@@ -23,7 +23,7 @@ class Bot:
         ws_client = None
         login_info = http_client.get_login_info_sync()
         router = Router(login_info["user_id"])
-        handler = Handler(http_client, settings)
+        handler = Handler(http_client)
         return cls(settings, login_info, router, http_client, ws_client, handler)
 
     async def start(self):

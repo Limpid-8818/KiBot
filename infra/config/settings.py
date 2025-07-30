@@ -14,3 +14,6 @@ class Settings(BaseSettings):
     LLM_BASE_URL: str = "<BASE_URL>"
     LLM_API_KEY: str = "<KEY>"
     LLM_MODEL: str = "<MODEL_NAME>"
+
+
+settings = Settings

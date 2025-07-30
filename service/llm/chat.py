@@ -1,14 +1,15 @@
 from openai import OpenAI
+from infra.config.settings import settings
 
 
-async def chat_handler(settings: dict, text: str) -> str:
+async def chat_handler(text: str) -> str:
     try:
         client = OpenAI(
-            api_key=settings["llm_key"],
-            base_url=settings["llm_base"],
+            api_key=settings.LLM_API_KEY,
+            base_url=settings.LLM_BASE_URL,
         )
         response = client.chat.completions.create(
-            model=settings["llm_model"],
+            model=settings.LLM_MODEL,
             messages=[{"role": "user", "content": text}],
             temperature=0.7
         )
