@@ -15,5 +15,9 @@ class Settings(BaseSettings):
     LLM_API_KEY: str = "<KEY>"
     LLM_MODEL: str = "<MODEL_NAME>"
 
+    # 和风天气 API
+    WEATHER_API_HOST: str = "<URL>"
+    WEATHER_API_KEY: str = "<KEY>"
 
-settings = Settings
+
+settings = Settings()
