@@ -1,6 +1,6 @@
 import httpx
 from typing import Optional
-from models import Location, NowWeather, DailyForecast
+from .models import Location, NowWeather, DailyForecast
 from infra.config.settings import settings
 
 

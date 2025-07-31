@@ -1,6 +1,6 @@
 from typing import Optional
 
-from client import QWeatherClient
+from .client import QWeatherClient
 from service.weather.models import WeatherResponse
 
 
