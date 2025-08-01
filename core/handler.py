@@ -1,16 +1,18 @@
 from adapter.napcat.http_api import NapCatHttpClient
 from infra.logger import logger
-from service.llm.chat import chat_handler
+from service.llm.chat import LLMService
 from service.weather.service import WeatherService
 
 
 class Handler:
     def __init__(self, client):
         self.client: NapCatHttpClient = client
+        self.llm_svc: LLMService = LLMService()
         self.weather_svc: WeatherService = WeatherService()
 
     async def reply_handler(self, group_id, msg):
-        reply = await chat_handler(msg)
+        resp = await self.llm_svc.chat(msg)
+        reply: str = resp.reply
         await self.client.send_group_msg(group_id, reply)
 
     async def weather_handler(self, group_id, msg: str):
