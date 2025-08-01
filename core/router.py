@@ -17,6 +17,9 @@ class Router:
         if cleaned_msg.startswith("/天气"):
             result_msg = re.sub(r'^/天气\s?', '', cleaned_msg)
             await handler.weather_handler(message.group_id, result_msg)
+        elif cleaned_msg.startswith("/番剧"):
+            bangumi_cmd = re.sub(r'^/番剧\s?', '', cleaned_msg).strip()
+            await handler.bangumi_handler(message.group_id, bangumi_cmd)
         else:
             await handler.reply_handler(message.group_id, cleaned_msg)
 
