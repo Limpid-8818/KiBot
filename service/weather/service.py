@@ -1,7 +1,7 @@
 from typing import Optional
 
 from .client import QWeatherClient
-from service.weather.models import WeatherResponse
+from service.weather.models import WeatherResponse, WarningResponse
 
 
 class WeatherService:
@@ -25,4 +25,16 @@ class WeatherService:
         return WeatherResponse(
             location=location,
             daily=[today_forecast]
+        )
+
+    async def get_warning(self, city: str) -> Optional[WarningResponse]:
+        location = await self.client.get_location(city)
+        if not location:
+            return None
+        warnings = await self.client.get_warning_info(location.id)
+        if warnings is None:
+            return None
+        return WarningResponse(
+            location=location,
+            warningInfo=warnings
         )
