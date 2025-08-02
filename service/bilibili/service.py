@@ -6,7 +6,8 @@ from datetime import datetime
 from infra.logger import logger
 from .client import BiliClient
 from .models import BiliCookie
-from ..utils.qrcode_generator import QRCodeGenerator
+from .utils.cookie_refresher import CookieRefresher
+from .utils.qrcode_generator import QRCodeGenerator
 
 
 class BiliService:
@@ -14,6 +15,7 @@ class BiliService:
         self.client = BiliClient()
         self.cookie_file = "cache/bilibili_cookies.json"
         self.qr_generator = QRCodeGenerator()
+        self.cookie_refresher = CookieRefresher(self.client.client)
 
     async def generate_login_qrcode(self) -> Optional[Tuple[str, str]]:
         """
@@ -21,13 +23,13 @@ class BiliService:
         """
         return await self.client.generate_qrcode()
 
-    async def wait_for_qrcode_login(self, qrcode_key: str, timeout: int = 180) -> Optional[BiliCookie]:
+    async def wait_for_qrcode_login(self, qrcode_key: str, timeout: int = 180) -> Optional[Tuple[BiliCookie, str]]:
         """
         等待扫码登录完成
         """
         return await self.client.wait_for_login(qrcode_key, timeout)
 
-    def save_cookies(self, cookies: BiliCookie) -> bool:
+    def save_cookies(self, cookies: BiliCookie, refresh_token: str = "") -> bool:
         """
         保存Cookie到文件
         """
@@ -38,6 +40,7 @@ class BiliService:
                 "DedeUserID__ckMd5": cookies.DedeUserID__ckMd5,
                 "SESSDATA": cookies.SESSDATA,
                 "bili_jct": cookies.bili_jct,
+                "refresh_token": refresh_token,
                 "saved_at": datetime.now().isoformat()
             }
             
@@ -49,9 +52,9 @@ class BiliService:
             logger.warn("BiliService", f"保存Cookie失败: {e}")
             return False
 
-    def load_cookies(self) -> Optional[BiliCookie]:
+    def load_cookies(self) -> Optional[Tuple[BiliCookie, str]]:
         """
-        从文件加载Cookie
+        从文件加载Cookie和refresh_token
         """
         try:
             if not os.path.exists(self.cookie_file):
@@ -60,12 +63,16 @@ class BiliService:
             with open(self.cookie_file, "r", encoding="utf-8") as f:
                 cookie_data = json.load(f)
             
-            return BiliCookie(
+            cookies = BiliCookie(
                 DedeUserID=cookie_data["DedeUserID"],
                 DedeUserID__ckMd5=cookie_data["DedeUserID__ckMd5"],
                 SESSDATA=cookie_data["SESSDATA"],
                 bili_jct=cookie_data["bili_jct"]
             )
+            
+            refresh_token = cookie_data.get("refresh_token", "")
+            
+            return cookies, refresh_token
         except Exception as e:
             logger.warn("BiliService", f"加载Cookie失败: {e}")
             return None
@@ -74,8 +81,8 @@ class BiliService:
         """
         检查Cookie有效性
         """
-        cookies = self.load_cookies()
-        return cookies is not None
+        result = self.load_cookies()
+        return result is not None
 
     def display_qrcode(self, qr_url: str, show_terminal: bool = True, save_image: bool = False):
         """
@@ -98,7 +105,7 @@ class BiliService:
             else:
                 logger.warn("BiliService", "二维码图片保存失败")
 
-    async def login_with_qrcode(self, show_terminal_qr: bool = True, save_qr_image: bool = False) -> Optional[BiliCookie]:
+    async def login_with_qrcode(self, show_terminal_qr: bool = True, save_qr_image: bool = False) -> Optional[Tuple[BiliCookie, str]]:
         """
         扫码登录流程
         """
@@ -110,16 +117,49 @@ class BiliService:
         
         self.display_qrcode(qr_url, show_terminal_qr, save_qr_image)
         
-        cookies = await self.wait_for_qrcode_login(qrcode_key)
-        if not cookies:
+        # 等待用户扫码登录，直接获取Cookie和refresh_token
+        result = await self.wait_for_qrcode_login(qrcode_key)
+        if not result:
             return None
         
-        if self.save_cookies(cookies):
-            logger.info("BiliService", "Cookie保存成功！")
-        else:
-            logger.warn("BiliService", "Cookie保存失败！")
+        cookies, refresh_token = result
         
-        return cookies
+        if self.save_cookies(cookies, refresh_token):
+            logger.info("BiliService", "Cookie和refresh_token保存成功！")
+        else:
+            logger.warn("BiliService", "Cookie和refresh_token保存失败！")
+        
+        return cookies, refresh_token
+
+    async def get_valid_cookies(self) -> Optional[Tuple[BiliCookie, str]]:
+        """
+        获取有效的Cookie（包含自动刷新）
+        """
+        result = self.load_cookies()
+        if not result:
+            return None
+        
+        cookies, refresh_token = result
+        
+        refresh_result = await self.cookie_refresher.refresh_cookies_if_needed(cookies, refresh_token)
+        if refresh_result:
+            new_cookies, new_refresh_token = refresh_result
+            if self.save_cookies(new_cookies, new_refresh_token):
+                logger.info("BiliService", "Cookie刷新后已保存")
+            return new_cookies, new_refresh_token
+        
+        return cookies, refresh_token
+
+    async def ensure_valid_cookies(self) -> Optional[Tuple[BiliCookie, str]]:
+        """
+        确保Cookie有效，如果无效则重新登录
+        """
+        result = await self.get_valid_cookies()
+        if result:
+            return result
+        
+        logger.info("BiliService", "Cookie无效，需要重新登录")
+        return await self.login_with_qrcode()
 
     async def close(self):
         """关闭服务"""

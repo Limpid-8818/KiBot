@@ -119,7 +119,7 @@ class BiliClient:
             logger.warn("BiliClient", f"从URL解析Cookie失败: {e}")
             return None
 
-    async def wait_for_login(self, qrcode_key: str, timeout: int = 180) -> Optional[BiliCookie]:
+    async def wait_for_login(self, qrcode_key: str, timeout: int = 180) -> Optional[Tuple[BiliCookie, str]]:
         """
         等待用户扫码登录，二维码默认失效的时间为180秒
         """
@@ -147,9 +147,18 @@ class BiliClient:
                 continue
 
             if poll_response.data.code == 0:
-                # 登录成功，这里需要直接对该次的返回内容进行解析
-                logger.info("BiliClient", "扫码登录成功，获取Cookie...")
-                return await self.extract_cookies_from_url(poll_response.data.url)
+                # 登录成功，这里需要直接对该轮询中的返回内容进行解析，获取Cookie和refresh_token
+                logger.info("BiliClient", "扫码登录成功，获取Cookie和refresh_token...")
+                cookies = await self.extract_cookies_from_url(poll_response.data.url)
+                if cookies:
+                    refresh_token = poll_response.data.refresh_token
+                    if not refresh_token:
+                        logger.warn("BiliClient", "无法提取refresh_token")
+                        return None
+                    return cookies, refresh_token
+                else:
+                    logger.warn("BiliClient", "无法提取Cookie")
+                    return None
             elif poll_response.data.code == 86038:
                 logger.warn("BiliClient", "二维码已失效")
                 return None
