@@ -22,7 +22,7 @@ class BangumiClient:
         """获取每日放送信息"""
         try:
             response = await self.client.get(f"{self.base_url}/calendar")
-        except httpx.Timeout:
+        except httpx.TimeoutException:
             logger.warn("Bangumi", "获取日历超时")
             return None
         except Exception as e:
@@ -65,7 +65,8 @@ class BangumiClient:
         
         return calendar
 
-    def _parse_subject(self, data: dict) -> Optional[Subject]:
+    @staticmethod
+    def _parse_subject(data: dict) -> Optional[Subject]:
         """解析条目数据"""
         try:
             # 检查必需字段

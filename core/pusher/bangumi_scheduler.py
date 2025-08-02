@@ -1,15 +1,14 @@
-import asyncio
 import json
 import os
 from datetime import datetime
-from typing import Dict, List
+from typing import Dict
 from zoneinfo import ZoneInfo
 
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 
 from adapter.napcat.http_api import NapCatHttpClient
-from service.bangumi.service import BangumiService
 from infra.logger import logger
+from service.bangumi.service import BangumiService
 
 
 class BangumiScheduler:

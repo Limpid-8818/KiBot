@@ -22,7 +22,7 @@ class QWeatherClient:
 
         try:
             resp = await self.client.get(url, params=params)
-        except httpx.Timeout:
+        except httpx.TimeoutException:
             logger.warn("Weather", f"[{city}] Get Loc Timeout")
             return None
 
@@ -52,7 +52,7 @@ class QWeatherClient:
         params = {"location": location_id}
         try:
             resp = await self.client.get(url, params=params)
-        except httpx.Timeout:
+        except httpx.TimeoutException:
             logger.warn("Weather", f"[{location_id}] Get Now Weather Timeout")
             return None
         data = resp.json()
@@ -66,7 +66,7 @@ class QWeatherClient:
         params = {"location": location_id}
         try:
             resp = await self.client.get(url, params=params)
-        except httpx.Timeout:
+        except httpx.TimeoutException:
             logger.warn("Weather", f"[{location_id}] Get Forecast Weather Timeout")
             return None
         data = resp.json()

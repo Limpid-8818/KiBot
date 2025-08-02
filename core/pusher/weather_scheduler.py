@@ -88,8 +88,8 @@ class WeatherScheduler:
         self.scheduler.add_job(
             self._send_daily_forecast,
             trigger="cron",
-            hour="8",
-            minute="00",
+            hour="7",
+            minute="30",
             id="push_daily_forecast",
         )
         self.scheduler.start()
