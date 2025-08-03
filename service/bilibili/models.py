@@ -83,7 +83,7 @@ class DynamicModules(BaseModel):
     module_author: 'ModuleAuthor'   # UP主信息
     module_dynamic: 'ModuleDynamic'   # 动态内容信息	
     module_more: Optional[Dict[str, Any]] = None
-    module_stat: Optional['ModuleStat'] = None   # 动态统计数据
+    module_stat: Optional[Dict[str, Any]] = None
     module_interaction: Optional[Dict[str, Any]] = None
     module_fold: Optional[Dict[str, Any]] = None
     module_dispute: Optional[Dict[str, Any]] = None
