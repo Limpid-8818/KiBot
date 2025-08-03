@@ -20,6 +20,9 @@ class Router:
         elif cleaned_msg.startswith("/番剧"):
             bangumi_cmd = re.sub(r'^/番剧\s?', '', cleaned_msg).strip()
             await handler.bangumi_handler(message.group_id, bangumi_cmd)
+        elif cleaned_msg.startswith("/b站"):
+            bilibili_cmd = re.sub(r'^/b站\s?', '', cleaned_msg).strip()
+            await handler.bilibili_handler(message.group_id, bilibili_cmd)
         else:
             await handler.reply_handler(message.group_id, cleaned_msg)
 
