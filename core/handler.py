@@ -4,6 +4,7 @@ from service.llm.chat import LLMService
 from service.weather.service import WeatherService
 from service.bangumi.service import BangumiService
 from core.pusher.bangumi_scheduler import BangumiScheduler
+from core.pusher.bilibili_scheduler import BilibiliScheduler
 
 
 class Handler:
@@ -13,6 +14,7 @@ class Handler:
         self.weather_svc: WeatherService = WeatherService()
         self.bangumi_svc: BangumiService = BangumiService()
         self.bangumi_scheduler: BangumiScheduler = BangumiScheduler(self.client)
+        self.bilibili_scheduler: BilibiliScheduler = BilibiliScheduler(self.client)
 
     async def reply_handler(self, group_id, msg):
         resp = await self.llm_svc.chat(msg)
@@ -80,3 +82,99 @@ class Handler:
         """处理取消订阅番剧推送"""
         self.bangumi_scheduler.unsubscribe(str(group_id))
         await self.client.send_group_msg(group_id, "❌ 本群已取消订阅每日番剧推送。")
+
+    async def bilibili_handler(self, group_id, msg: str):
+        """统一处理B站订阅相关命令"""
+        default_msg = "B站订阅服务。API服务为 https://socialsisteryi.github.io/bilibili-API-collect/ 项目收集而来的野生 API ，请勿滥用！\n"
+        
+        parts = msg.strip().split()
+        if len(parts) == 0:
+            await self.client.send_group_msg(group_id, default_msg + "请输入正确的指令，例如：/b站 订阅 123456")
+            return
+        
+        command = parts[0].lower()
+        
+        if command == "订阅":
+            if len(parts) < 2:
+                await self.client.send_group_msg(group_id, "❌ 请指定UP主UID，例如：/b站 订阅 123456")
+                return
+            
+            up_uid = parts[1]
+            if not up_uid.isdigit():
+                await self.client.send_group_msg(group_id, "❌ 请输入正确的UP主UID")
+                return
+            
+            await self._handle_bilibili_subscribe(group_id, up_uid)
+            
+        elif command == "取消订阅":
+            if len(parts) < 2:
+                await self.client.send_group_msg(group_id, "❌ 请指定UP主UID，例如：/b站 取消订阅 123456")
+                return
+            
+            up_uid = parts[1]
+            if not up_uid.isdigit():
+                await self.client.send_group_msg(group_id, "❌ 请输入正确的UP主UID")
+                return
+            
+            await self._handle_bilibili_unsubscribe(group_id, up_uid)
+            
+        elif command == "查看订阅":
+            await self._handle_bilibili_list_subscriptions(group_id)
+            
+        elif command == "检查":
+            if len(parts) < 2:
+                await self.client.send_group_msg(group_id, "❌ 请指定UP主UID，例如：/b站 检查 123456")
+                return
+            
+            up_uid = parts[1]
+            if not up_uid.isdigit():
+                await self.client.send_group_msg(group_id, "❌ 请输入正确的UP主UID")
+                return
+            
+            await self._handle_bilibili_check_dynamics(group_id, up_uid)
+            
+        else:
+            await self.client.send_group_msg(group_id, default_msg + "支持的命令：订阅、取消订阅、查看订阅、检查")
+
+    async def _handle_bilibili_subscribe(self, group_id, up_uid: str):
+        """处理订阅UP主动态推送"""
+        if self.bilibili_scheduler.is_subscribed(str(group_id), up_uid):
+            await self.client.send_group_msg(group_id, f"⚠️ 本群已订阅UP主 {up_uid} 的动态推送")
+            return
+        
+        self.bilibili_scheduler.subscribe(str(group_id), up_uid)
+        await self.client.send_group_msg(group_id, f"✅ 本群已订阅UP主 {up_uid} 的动态推送！\n每5分钟会自动检查新动态并推送。")
+
+    async def _handle_bilibili_unsubscribe(self, group_id, up_uid: str):
+        """处理取消订阅UP主动态推送"""
+        if not self.bilibili_scheduler.is_subscribed(str(group_id), up_uid):
+            await self.client.send_group_msg(group_id, f"⚠️ 本群未订阅UP主 {up_uid} 的动态推送")
+            return
+        
+        self.bilibili_scheduler.unsubscribe(str(group_id), up_uid)
+        await self.client.send_group_msg(group_id, f"❌ 本群已取消订阅UP主 {up_uid} 的动态推送")
+
+    async def _handle_bilibili_list_subscriptions(self, group_id):
+        """处理查看订阅列表"""
+        subscribed_ups = self.bilibili_scheduler.get_subscribed_ups(str(group_id))
+        
+        if not subscribed_ups:
+            await self.client.send_group_msg(group_id, "📢 本群暂无订阅的UP主")
+            return
+        
+        reply = "📢 本群订阅的UP主：\n"
+        for up_uid in subscribed_ups:
+            reply += f"• {up_uid}\n"
+        
+        await self.client.send_group_msg(group_id, reply)
+
+    async def _handle_bilibili_check_dynamics(self, group_id, up_uid: str):
+        """处理手动检查UP主动态"""
+        await self.client.send_group_msg(group_id, "🔍 正在检查UP主动态...")
+        
+        try:
+            result = await self.bilibili_scheduler.send_manual_check(str(group_id), up_uid)
+            await self.client.send_group_msg(group_id, result)
+        except Exception as e:
+            logger.warn("Handler", f"检查UP主 {up_uid} 动态时出错: {e}")
+            await self.client.send_group_msg(group_id, "❌ 检查动态时出现错误")

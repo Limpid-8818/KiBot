@@ -4,7 +4,10 @@ from typing import Optional, Tuple
 from urllib.parse import urlparse, parse_qs
 
 from infra.logger import logger
-from .models import QRCodeGenerateResponse, QRCodePollResponse, BiliCookie
+from .models import (
+    QRCodeGenerateResponse, QRCodePollResponse, BiliCookie,
+    DynamicResponse
+)
 
 
 """
@@ -15,6 +18,7 @@ from .models import QRCodeGenerateResponse, QRCodePollResponse, BiliCookie
 class BiliClient:
     def __init__(self):
         self.base_url = "https://passport.bilibili.com"
+        self.api_base_url = "https://api.bilibili.com"
         self.headers = {
             "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36",
             "Accept": "application/json, text/plain, */*",
@@ -28,6 +32,8 @@ class BiliClient:
             follow_redirects=True
         )
 
+
+    # -----------------这是一条登录/鉴权部分的分割线----------------- #
     async def generate_qrcode(self) -> Optional[Tuple[str, str]]:
         """
         生成二维码
@@ -170,7 +176,70 @@ class BiliClient:
                 logger.warn("BiliClient", f"未知状态码: {poll_response.data.code}")
 
             await asyncio.sleep(2)
+    # -----------------登录/鉴权部分到此结束----------------- #
+
+
+    # -----------------这是一条获取动态部分的分割线----------------- #
+    async def get_user_dynamics(self, host_mid: int, cookies: BiliCookie, offset: str = "", update_baseline: str = "") -> Optional[DynamicResponse]:
+        """
+        获取指定UP主的动态列表
+        Args:
+            host_mid: UP主UID
+            cookies: 用户Cookie
+            offset: 分页偏移量
+            update_baseline: 更新基线（被坑了，这个 API 的这个参数根本没有限制作用）
+        Returns:
+            DynamicResponse / None
+        """
+        url = f"{self.api_base_url}/x/polymer/web-dynamic/v1/feed/all"
+        
+        params = {
+            "host_mid": host_mid,
+            "platform": "web",
+            "features": "itemOpusStyle,listOnlyfans,opusBigCover,onlyfansVote,decorationCard,onlyfansAssetsV2,forwardListHidden,ugcDelete",
+            "web_location": "333.1365"
+        }
+        
+        if offset:
+            params["offset"] = offset
+        if update_baseline:
+            params["update_baseline"] = update_baseline
+        
+        cookie_dict = {
+            "SESSDATA": cookies.SESSDATA,
+            "bili_jct": cookies.bili_jct,
+            "DedeUserID": cookies.DedeUserID,
+            "DedeUserID__ckMd5": cookies.DedeUserID__ckMd5
+        }
+        
+        try:
+            response = await self.client.get(url, params=params, cookies=cookie_dict)
+        except httpx.Timeout:
+            logger.warn("BiliClient", f"获取UP主 {host_mid} 动态超时")
+            return None
+        except Exception as e:
+            logger.warn("BiliClient", f"获取UP主 {host_mid} 动态请求失败: {e}")
+            return None
+
+        if response.status_code != 200:
+            logger.warn("BiliClient", f"获取UP主 {host_mid} 动态失败: HTTP {response.status_code}")
+            return None
+
+        try:
+            data = response.json()
+            dynamic_response = DynamicResponse(**data)
+        except Exception as e:
+            logger.warn("BiliClient", f"解析UP主 {host_mid} 动态响应失败: {e}")
+            return None
+
+        if dynamic_response.code != 0:
+            logger.warn("BiliClient", f"获取UP主 {host_mid} 动态失败: {dynamic_response.message}")
+            return None
+
+        return dynamic_response
+    # -----------------获取动态部分到此结束----------------- #
+
 
     async def close(self):
         """关闭客户端"""
-        await self.client.aclose() 
+        await self.client.aclose()

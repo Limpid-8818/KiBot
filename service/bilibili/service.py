@@ -1,11 +1,11 @@
 import json
 import os
-from typing import Optional, Tuple
+from typing import Optional, Tuple, List
 from datetime import datetime
 
 from infra.logger import logger
 from .client import BiliClient
-from .models import BiliCookie
+from .models import BiliCookie, DynamicResponse, DynamicItem
 from .utils.cookie_refresher import CookieRefresher
 from .utils.qrcode_generator import QRCodeGenerator
 
@@ -161,6 +161,22 @@ class BiliService:
         logger.info("BiliService", "Cookie无效，需要重新登录")
         return await self.login_with_qrcode()
 
-    async def close(self):
-        """关闭服务"""
-        await self.client.close() 
+    async def get_user_dynamics(self, host_mid: int, offset: str = "", update_baseline: str = "") -> Optional[DynamicResponse]:
+        """
+        获取指定UP主的动态列表
+        Args:
+            host_mid: UP主UID
+            offset: 分页偏移量
+            update_baseline: 更新基线
+        Returns:
+            DynamicResponse / None
+        """
+        result = await self.ensure_valid_cookies()
+        if not result:
+            logger.warn("BiliService", "无法获取有效Cookie，无法获取动态")
+            return None
+        
+        cookies, _ = result
+        
+        # 获取动态
+        return await self.client.get_user_dynamics(host_mid, cookies, offset, update_baseline)

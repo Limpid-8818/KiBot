@@ -4,18 +4,12 @@ from typing import Optional
 
 class QRCodeGenerator:
     """
-    二维码生成器
-    用于根据 URL 构造二维码，避免访问浏览器
+    二维码生成器，用于根据 URL 构造二维码，避免访问浏览器
     """
     @staticmethod
     def generate_terminal_qr(url: str, size: int = 10) -> Optional[str]:
         """
         生成终端显示的二维码
-        Args:
-            url: 要生成二维码的URL
-            size: 二维码大小，这个无所谓，只要 URL 对就没问题，而 BUPT UCloud 一样蠢
-        Returns:
-            打印的二维码/None
         """
         try:
             qr = qrcode.QRCode(
