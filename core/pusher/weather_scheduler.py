@@ -22,6 +22,8 @@ EMOJI_MAP = {
     "雪": "❄️",
     "雾": "🌫️",
     "霾": "🌫️",
+    "雷阵雨": "⛈️",
+    "沙尘暴": "🏜️",
 }
 
 
@@ -135,8 +137,9 @@ class WeatherScheduler:
         )
         self.scheduler.add_job(
             self._send_warnings,
-            trigger="interval",
-            minutes=30,
+            trigger="cron",
+            hour="7-23",
+            minute="30",
             id="push_warnings",
         )
         self.scheduler.start()
