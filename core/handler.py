@@ -22,23 +22,43 @@ class Handler:
         await self.client.send_group_msg(group_id, reply)
 
     async def weather_handler(self, group_id, msg: str):
-        city = msg
+        """
+            /天气 [城市]         -> 实时天气
+            /天气 预警 [城市]     -> 预警信息
+        """
         default_msg = "天气服务由 和风天气 提供。\n"
-        if city.isspace() or len(city) == 0:
+        parts = msg.strip().split(maxsplit=1)
+        if not parts or not parts[0]:
             logger.warn("Handler", "未指定城市")
             await self.client.send_group_msg(group_id, default_msg + "请指定城市，例如：/天气 北京")
             return
-        resp = await self.weather_svc.get_now(city)
-        if not resp:
-            logger.warn("Handler", "未找到城市")
-            await self.client.send_group_msg(group_id, f"⚠️ 未找到城市「{city}」或接口异常")
-            return
-        reply = (
-            f"🌤️ {resp.location.name} 实时天气\n"
-            f"温度：{resp.now.temp}°C（体感 {resp.now.feelsLike}°C）\n"
-            f"天气：{resp.now.text}\n"
-            f"湿度：{resp.now.humidity}%"
-        )
+
+        # 判断是否以“预警”开头
+        if parts[0] == "预警":
+            if len(parts) == 1 or not parts[1].strip():
+                await self.client.send_group_msg(group_id, default_msg + "请指定城市，例如：/天气 预警 北京")
+                return
+            city = parts[1].strip()
+            warn_resp = await self.weather_svc.get_warning(city)
+            if not warn_resp or not warn_resp.warningInfo:
+                await self.client.send_group_msg(group_id, f"⚠️ 暂无「{city}」的预警信息")
+                return
+            alerts = "\n".join([f"⚠️ {w.title}\n{w.text}" for w in warn_resp.warningInfo])
+            reply = f"🚨 {city} 气象预警\n{alerts}"
+        else:
+            city = parts[0]
+            resp = await self.weather_svc.get_now(city)
+            if not resp:
+                logger.warn("Handler", "未找到城市")
+                await self.client.send_group_msg(group_id, f"⚠️ 未找到城市「{city}」或接口异常")
+                return
+            reply = (
+                f"🌤️ {resp.location.name} 实时天气\n"
+                f"温度：{resp.now.temp}°C（体感 {resp.now.feelsLike}°C）\n"
+                f"天气：{resp.now.text}\n"
+                f"湿度：{resp.now.humidity}%"
+            )
+
         await self.client.send_group_msg(group_id, reply)
     
     async def bangumi_handler(self, group_id, msg: str):

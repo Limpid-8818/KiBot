@@ -2,7 +2,7 @@ import httpx
 from typing import Optional
 
 from infra.logger import logger
-from .models import Location, NowWeather, DailyForecast
+from .models import Location, NowWeather, DailyForecast, WarningInfo
 from infra.config.settings import settings
 
 
@@ -22,7 +22,7 @@ class QWeatherClient:
 
         try:
             resp = await self.client.get(url, params=params)
-        except httpx.Timeout:
+        except httpx.TimeoutException:
             logger.warn("Weather", f"[{city}] Get Loc Timeout")
             return None
 
@@ -52,7 +52,7 @@ class QWeatherClient:
         params = {"location": location_id}
         try:
             resp = await self.client.get(url, params=params)
-        except httpx.Timeout:
+        except httpx.TimeoutException:
             logger.warn("Weather", f"[{location_id}] Get Now Weather Timeout")
             return None
         data = resp.json()
@@ -66,7 +66,7 @@ class QWeatherClient:
         params = {"location": location_id}
         try:
             resp = await self.client.get(url, params=params)
-        except httpx.Timeout:
+        except httpx.TimeoutException:
             logger.warn("Weather", f"[{location_id}] Get Forecast Weather Timeout")
             return None
         data = resp.json()
@@ -79,3 +79,17 @@ class QWeatherClient:
         if daily_list:
             return daily_list[0]
         return None
+
+    async def get_warning_info(self, location_id: str) -> Optional[list[WarningInfo]]:
+        url = f"https://{self.api_host}/v7/warning/now"
+        params = {"location": location_id}
+        try:
+            resp = await self.client.get(url, params=params)
+        except httpx.TimeoutException:
+            logger.warn("Weather", f"[{location_id}] Get Warning Timeout")
+            return None
+        data = resp.json()
+        if data.get("code") == "200":
+            return [WarningInfo(**warning) for warning in data["warning"]]
+        return None
+
