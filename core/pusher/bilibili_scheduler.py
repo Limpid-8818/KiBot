@@ -166,11 +166,12 @@ class BilibiliScheduler:
                     for group_id, subscribed_ups in self.subscriptions.items():
                         if up_uid in subscribed_ups:
                             for screenshot_path in new_screenshots:
+                                abs_path = os.path.abspath(screenshot_path)
                                 try:
                                     # 发送图片文件
                                     await self.client.send_group_msg(int(group_id),
                                                                      f"📢 Ki酱提醒您：您关注的UP主动态更新啦"
-                                                                     f"\n[CQ:image,file=file://{screenshot_path}]")
+                                                                     f"\n[CQ:image,file=file://{abs_path}]")
                                 except Exception as e:
                                     logger.warn("BilibiliScheduler", f"发送动态截图到群 {group_id} 时出错: {e}")
 
@@ -183,8 +184,9 @@ class BilibiliScheduler:
             new_screenshots = await self.check_new_dynamics(up_uid)
             if new_screenshots:
                 for screenshot_path in new_screenshots:
+                    abs_path = os.path.abspath(screenshot_path)
                     await self.client.send_group_msg(int(group_id),
-                                                     f"📢 Ki酱提醒您：您关注的UP主动态更新啦\n[CQ:image,file=file://{screenshot_path}]")
+                                                     f"📢 Ki酱提醒您：您关注的UP主动态更新啦\n[CQ:image,file=file://{abs_path}]")
                 return "📢 检查完毕：已发送新动态截图"
             else:
                 return "📢 检查完毕：该UP主暂无新动态"

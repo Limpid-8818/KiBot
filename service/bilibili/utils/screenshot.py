@@ -48,16 +48,22 @@ class BilibiliScreenshot:
                 page = await context.new_page()
                 
                 await page.goto(url, wait_until='networkidle')
-                
-                # 把一些登录窗口和打开APP的CSS元素隐藏了
-                await page.add_style_tag(content="""
-                    .openapp-content, .m-fixed-openapp {
-                        display: none !important;
-                    }
-                    .login-panel-popover, .login-tip {
-                        display: none !important;
-                    }
-                """)
+
+                # 确保页面稳定
+                await page.wait_for_load_state('networkidle')
+
+                try:
+                    # 把一些登录窗口和打开APP的CSS元素隐藏了
+                    await page.add_style_tag(content="""
+                        .openapp-content, .m-fixed-openapp {
+                            display: none !important;
+                        }
+                        .login-panel-popover, .login-tip {
+                            display: none !important;
+                        }
+                    """)
+                except Exception as e:
+                    logger.warn("BilibiliScreenshot", f"样式注入失败: {e}")
                 
                 await asyncio.sleep(3)   
                 await page.evaluate("window.scrollTo(0, 0)")
@@ -94,7 +100,7 @@ class BilibiliScreenshot:
                 
         except Exception as e:
             logger.warn("BilibiliScreenshot", f"截图动态 {dynamic_id} 时出错: {e}")
-            return None
+            return ""
     
     def cleanup_old_screenshots(self, max_files: int = 20):
         """清理旧的截图文件，使用 FIFO 队列，只保留 max_files 个文件，默认为 20 个"""
@@ -115,4 +121,4 @@ class BilibiliScreenshot:
                     logger.info("BilibiliScreenshot", f"清理旧截图: {file_path}")
                     
         except Exception as e:
-            logger.warn("BilibiliScreenshot", f"清理旧截图时出错: {e}") 
+            logger.warn("BilibiliScreenshot", f"清理旧截图时出错: {e}")
