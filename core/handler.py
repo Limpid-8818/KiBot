@@ -76,7 +76,7 @@ class Handler:
                 move_dir = f"{info.moveDir}" if not info.move360 else f"{info.moveDir}({info.move360}°)"
                 lines.append(
                     f"{idx}. {s.name}（{s.year}年第{storm_id}号台风）\n"
-                    f"   类型：{cyclone_level_map.get(info.type, "未知")}\n"
+                    f"   类型：{cyclone_level_map.get(info.type, '未知')}\n"
                     f"   位置：{info.lat}°N {info.lon}°E\n"
                     f"   气压：{info.pressure} hPa\n"
                     f"   风速：{info.windSpeed} m/s\n"
