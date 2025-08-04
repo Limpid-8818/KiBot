@@ -1,11 +1,11 @@
 import json
 import os
-from typing import Optional, Tuple, List
 from datetime import datetime
+from typing import Optional, Tuple
 
 from infra.logger import logger
 from .client import BiliClient
-from .models import BiliCookie, DynamicResponse, DynamicItem
+from .models import BiliCookie, DynamicResponse
 from .utils.cookie_refresher import CookieRefresher
 from .utils.qrcode_generator import QRCodeGenerator
 
@@ -105,7 +105,8 @@ class BiliService:
             else:
                 logger.warn("BiliService", "二维码图片保存失败")
 
-    async def login_with_qrcode(self, show_terminal_qr: bool = True, save_qr_image: bool = False) -> Optional[Tuple[BiliCookie, str]]:
+    async def login_with_qrcode(self, show_terminal_qr: bool = True, save_qr_image: bool = False) \
+            -> Optional[Tuple[BiliCookie, str]]:
         """
         扫码登录流程
         """
@@ -161,7 +162,8 @@ class BiliService:
         logger.info("BiliService", "Cookie无效，需要重新登录")
         return await self.login_with_qrcode()
 
-    async def get_user_dynamics(self, host_mid: int, offset: str = "", update_baseline: str = "") -> Optional[DynamicResponse]:
+    async def get_user_dynamics(self, host_mid: int, offset: str = "", update_baseline: str = "") \
+            -> Optional[DynamicResponse]:
         """
         获取指定UP主的动态列表
         Args:

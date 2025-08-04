@@ -41,7 +41,8 @@ class BiliCookie(BaseModel):
     bili_jct: str
 
 
-# 动态相关模型，具体格式参考 https://socialsisteryi.github.io/bilibili-API-collect/docs/dynamic/all.html#%E8%8E%B7%E5%8F%96%E5%85%A8%E9%83%A8%E5%8A%A8%E6%80%81%E5%88%97%E8%A1%A8
+# 动态相关模型，具体格式参考
+# https://socialsisteryi.github.io/bilibili-API-collect/docs/dynamic/all.html#%E8%8E%B7%E5%8F%96%E5%85%A8%E9%83%A8%E5%8A%A8%E6%80%81%E5%88%97%E8%A1%A8
 # 二编，获取动态所使用的API针对部分类型的动态返回的动态内容并不全，所以下面的数据模型基本没用，留着以后再完善吧
 class DynamicResponse(BaseModel):
     """动态列表响应"""
@@ -65,7 +66,8 @@ class DynamicItem(BaseModel):
     basic: 'DynamicBasic'
     id_str: str
     modules: 'DynamicModules'
-    type: str   # 动态类型，具体见 https://socialsisteryi.github.io/bilibili-API-collect/docs/dynamic/dynamic_enum.html#%E5%8A%A8%E6%80%81%E7%B1%BB%E5%9E%8B
+    type: str   # 动态类型，具体见
+    # https://socialsisteryi.github.io/bilibili-API-collect/docs/dynamic/dynamic_enum.html#%E5%8A%A8%E6%80%81%E7%B1%BB%E5%9E%8B
     visible: bool
     orig: Optional['DynamicItem'] = None
 
@@ -172,4 +174,4 @@ QRCodeGenerateResponse.model_rebuild()
 QRCodePollResponse.model_rebuild()
 DynamicResponse.model_rebuild()
 CookieInfoResponse.model_rebuild()
-CookieRefreshResponse.model_rebuild() 
+CookieRefreshResponse.model_rebuild()

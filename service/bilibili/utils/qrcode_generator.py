@@ -57,4 +57,4 @@ class QRCodeGenerator:
             
         except Exception as e:
             print(f"保存二维码图片失败: {e}")
-            return False 
+            return False

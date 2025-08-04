@@ -1,7 +1,8 @@
-import os
 import asyncio
-import httpx
+import os
+
 from playwright.async_api import async_playwright
+
 from infra.logger import logger
 
 

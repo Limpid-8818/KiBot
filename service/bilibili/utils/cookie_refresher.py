@@ -1,14 +1,13 @@
-import time
+import binascii
 import re
 from typing import Optional, Tuple
+
 from Crypto.Cipher import PKCS1_OAEP
-from Crypto.PublicKey import RSA
 from Crypto.Hash import SHA256
-import binascii
+from Crypto.PublicKey import RSA
 
 from infra.logger import logger
 from ..models import CookieInfoResponse, CookieRefreshResponse, CookieConfirmResponse, BiliCookie
-
 
 """
 感谢 https://socialsisteryi.github.io/bilibili-API-collect/docs/login/cookie_refresh.html 对b站 Cookie 刷新机制逆向的详细整理。
