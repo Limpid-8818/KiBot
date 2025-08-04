@@ -1,9 +1,11 @@
-import httpx
+from datetime import datetime
 from typing import Optional
 
-from infra.logger import logger
-from .models import Location, NowWeather, DailyForecast, WarningInfo
+import httpx
+
 from infra.config.settings import settings
+from infra.logger import logger
+from .models import Location, NowWeather, DailyForecast, WarningInfo, StormItem, StormInfo
 
 
 class QWeatherClient:
@@ -93,3 +95,37 @@ class QWeatherClient:
             return [WarningInfo(**warning) for warning in data["warning"]]
         return None
 
+    async def get_storm_list(self) -> Optional[list[StormItem]]:
+        url = f"https://{self.api_host}/v7/tropical/storm-list"
+        year = str(datetime.now().year)
+        params = {"basin": "NP", "year": year}
+        try:
+            resp = await self.client.get(url, params=params)
+        except httpx.TimeoutException:
+            logger.warn("Weather", f"[{year}] Get Storm List Timeout")
+            return None
+        data = resp.json()
+        if data.get("code") == "200":
+            return [StormItem(**storm) for storm in data["storm"]]
+        return None
+
+    async def get_active_storm_list(self) -> Optional[list[StormItem]]:
+        storms = await self.get_storm_list()
+        active = [s for s in storms if s.isActive == "1"]
+        return active if active else None
+
+    async def get_now_storm_info(self, storm_id: str) -> Optional[StormInfo]:
+        url = f"https://{self.api_host}/v7/tropical/storm-track"
+        params = {"stormid": storm_id}
+        print(params)
+        try:
+            resp = await self.client.get(url, params=params)
+            print(resp)
+        except httpx.TimeoutException:
+            logger.warn("Weather", f"Storm Id [{storm_id}] Get Storm Info Timeout")
+            return None
+        data = resp.json()
+        if data.get("code") == "200" and data.get("now"):
+            storm_now = data["now"]
+            return StormInfo(**storm_now)
+        return None

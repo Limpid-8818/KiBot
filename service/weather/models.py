@@ -1,4 +1,4 @@
-from typing import Optional, List
+from typing import Optional, List, Literal
 
 from pydantic import BaseModel
 
@@ -59,3 +59,28 @@ class WarningInfo(BaseModel):
 class WarningResponse(BaseModel):
     location: Location
     warningInfo: Optional[List[WarningInfo]] = None
+
+
+class StormItem(BaseModel):
+    id: str
+    name: str
+    basin: str  # 所属区域, NP=西北太平洋
+    year: int
+    isActive: Literal["0", "1"]
+
+
+class StormInfo(BaseModel):
+    pubTime: str
+    lat: str
+    lon: str
+    type: Literal["TD", "TS", "STS", "TY", "STY", "SuperTY"]
+    pressure: str
+    windSpeed: str
+    moveSpeed: str
+    moveDir: Literal["N", "NNE", "NE", "ENE", "E", "ESE", "SE", "SSE", "S", "SSW", "SW", "WSW", "W", "WNW", "NW", "NNW"]
+    move360: str
+
+
+class StormResponse(BaseModel):
+    storm: StormItem
+    stormInfo: StormInfo

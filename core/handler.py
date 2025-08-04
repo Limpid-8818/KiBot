@@ -1,3 +1,5 @@
+import re
+
 from adapter.napcat.http_api import NapCatHttpClient
 from infra.logger import logger
 from service.llm.chat import LLMService
@@ -25,6 +27,7 @@ class Handler:
         """
             /天气 [城市]         -> 实时天气
             /天气 预警 [城市]     -> 预警信息
+            /天气 台风           -> 实时台风信息
         """
         default_msg = "天气服务由 和风天气 提供。\n"
         parts = msg.strip().split(maxsplit=1)
@@ -45,6 +48,41 @@ class Handler:
                 return
             alerts = "\n".join([f"⚠️ {w.title}\n{w.text}" for w in warn_resp.warningInfo])
             reply = f"🚨 {city} 气象预警\n{alerts}"
+        elif parts[0] == "台风":
+            storm_resp = await self.weather_svc.get_storm()
+            if not storm_resp:
+                await self.client.send_group_msg(group_id, "⚠️🌀 当前西北太平洋无活跃热带气旋/台风")
+                return
+
+            def parse_serial(st_id: str) -> int | None:
+                pattern = re.compile(r'^NP_\d{2}(\d{2})$')
+                m = pattern.match(st_id)
+                return int(m.group(1)) if m else None
+
+            cyclone_level_map = {
+                "TD": "热带低压",
+                "TS": "热带风暴",
+                "STS": "强热带风暴",
+                "TY": "台风",
+                "STY": "强台风",
+                "SuperTY": "超强台风",
+            }
+
+            lines = []
+            for idx, item in enumerate(storm_resp, 1):
+                s, info = item.storm, item.stormInfo
+                storm_id = parse_serial(s.id)
+                # 如果move360为空，则省略括号部分
+                move_dir = f"{info.moveDir}" if not info.move360 else f"{info.moveDir}({info.move360}°)"
+                lines.append(
+                    f"{idx}. {s.name}（{s.year}年第{storm_id}号台风）\n"
+                    f"   类型：{cyclone_level_map.get(info.type, "未知")}\n"
+                    f"   位置：{info.lat}°N {info.lon}°E\n"
+                    f"   气压：{info.pressure} hPa\n"
+                    f"   风速：{info.windSpeed} m/s\n"
+                    f"   移速：{info.moveSpeed} m/s {move_dir}"
+                )
+            reply = f"🌀 当前西北太平洋共有{len(storm_resp)}个活跃台风\n" + "\n".join(lines)
         else:
             city = parts[0]
             resp = await self.weather_svc.get_now(city)

@@ -1,7 +1,7 @@
 from typing import Optional
 
 from .client import QWeatherClient
-from service.weather.models import WeatherResponse, WarningResponse
+from service.weather.models import WeatherResponse, WarningResponse, StormResponse
 
 
 class WeatherService:
@@ -38,3 +38,20 @@ class WeatherService:
             location=location,
             warningInfo=warnings
         )
+
+    async def get_storm(self) -> Optional[list[StormResponse]]:
+        storms = await self.client.get_active_storm_list()
+        print(storms)
+        resp: list[StormResponse] = []
+        if not storms:
+            return None
+        for storm in storms:
+            storm_info = await self.client.get_now_storm_info(storm.id)
+            storm_resp_item = StormResponse(
+                storm=storm,
+                stormInfo=storm_info
+            )
+            resp.append(storm_resp_item)
+        if not resp:
+            return None
+        return resp
