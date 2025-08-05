@@ -128,8 +128,8 @@ class CalendarScheduler:
 
             # 按照信息筛选一次
             should_send = (
-                meta.holiday_name is not None
-                or meta.special is not None
+                meta_clone.holiday_name is not None
+                or meta_clone.special is not None
             )
             if not should_send:
                 # 平常日按概率筛选
@@ -138,15 +138,15 @@ class CalendarScheduler:
                     return
 
             # 确定时间点并注册任务
-            base = datetime.combine(meta.date, time(8, 0))
+            base = datetime.combine(meta_clone.date, time(8, 0))
             seconds = random.randint(0, 14 * 3600)
             send_at = base + timedelta(seconds=seconds)
             logger.info("Calendar Scheduler", f"群 {gid} 日程将于{send_at}发送")
 
-            job_id = f"greet_{gid}_{meta.date.isoformat()}"
+            job_id = f"greet_{gid}_{meta_clone.date.isoformat()}"
             self.scheduler.add_job(
                 self._do_send,
-                kwargs={'group_id': gid, 'date_meta': meta},
+                kwargs={'group_id': gid, 'date_meta': meta_clone},
                 id=job_id,
                 trigger=DateTrigger(run_date=send_at, timezone="Asia/Shanghai"),
                 replace_existing=True,
@@ -171,10 +171,8 @@ class CalendarScheduler:
                 continue
 
             if d == today:
+                # 追加到克隆实例
                 add_special_info(meta, content)
-
-        # 追加到克隆实例
-        meta.special = matched or None
 
     async def _do_send(self, group_id: int, date_meta: DateMeta):
         msg = await self._build_message(date_meta)
