@@ -1,4 +1,5 @@
 from langchain_core.messages import SystemMessage, HumanMessage, AIMessage
+from langchain_core.prompts import PromptTemplate
 from langchain_core.runnables import Runnable
 from langchain_openai import ChatOpenAI
 
@@ -34,6 +35,17 @@ class LLMService:
             messages=[
                 ChatMessage(role="system", content=prompts.DEFAULT_SYSTEM_PROMPT),
                 ChatMessage(role="user", content=msg),
+            ],
+        )
+        lc_msgs = self._to_lc_messages(req.messages)
+        response = await self.llm.ainvoke(lc_msgs)
+        return ChatResponse(reply=response.content)
+
+    async def generate_greeting(self, msg: str) -> ChatResponse:
+        prompt = PromptTemplate.from_template(prompts.GREETING_PROMPT).format(content=msg)
+        req = ChatRequest(
+            messages=[
+                ChatMessage(role="system", content=prompt),
             ],
         )
         lc_msgs = self._to_lc_messages(req.messages)
