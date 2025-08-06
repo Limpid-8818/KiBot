@@ -1,6 +1,7 @@
 import re
 
 from adapter.napcat.http_api import NapCatHttpClient
+from core.pusher.weather_scheduler import WeatherScheduler
 from infra.logger import logger
 from service.llm.chat import LLMService
 from service.weather.service import WeatherService
@@ -14,6 +15,7 @@ class Handler:
         self.client: NapCatHttpClient = client
         self.llm_svc: LLMService = LLMService()
         self.weather_svc: WeatherService = WeatherService()
+        self.weather_scheduler = WeatherScheduler(self.client)
         self.bangumi_svc: BangumiService = BangumiService()
         self.bangumi_scheduler: BangumiScheduler = BangumiScheduler(self.client)
         self.bilibili_scheduler: BilibiliScheduler = BilibiliScheduler(self.client)
@@ -28,6 +30,8 @@ class Handler:
             /天气 [城市]         -> 实时天气
             /天气 预警 [城市]     -> 预警信息
             /天气 台风           -> 实时台风信息
+            /天气 订阅 [城市]     -> 添加订阅城市
+            /天气 取消订阅 [城市]  -> 删除订阅城市
         """
         default_msg = "天气服务由 和风天气 提供。\n"
         parts = msg.strip().split(maxsplit=1)
@@ -83,6 +87,30 @@ class Handler:
                     f"   移速：{info.moveSpeed} m/s {move_dir}"
                 )
             reply = f"🌀 当前西北太平洋共有{len(storm_resp)}个活跃台风\n" + "\n".join(lines)
+        elif parts[0] == "订阅":
+            if len(parts) == 1 or not parts[1].strip():
+                await self.client.send_group_msg(group_id, default_msg + "请指定城市，例如：/天气 订阅 北京")
+                return
+            cities = [city.strip() for city in parts[1].strip().split()]
+            for city in cities:
+                if not await self.weather_svc.check_location(city):
+                    await self.client.send_group_msg(group_id, f"⚠️ 未找到城市「{city}」或接口异常")
+                    return
+            self.weather_scheduler.subscribe(str(group_id), *cities)
+            subscribed_cities = list(set(self.weather_scheduler.subscriptions.get(str(group_id), [])))
+            reply = f"✅ 已成功订阅以下城市的天气更新：\n{', '.join(cities)}\n当前订阅列表：\n{', '.join(subscribed_cities)}"
+        elif parts[0] == "取消订阅":
+            if len(parts) == 1 or not parts[1].strip():
+                await self.client.send_group_msg(group_id, default_msg + "请指定城市，例如：/天气 取消订阅 北京")
+                return
+            cities = [city.strip() for city in parts[1].strip().split()]
+            for city in cities:
+                self.weather_scheduler.unsubscribe(str(group_id), city)
+            subscribed_cities = self.weather_scheduler.subscriptions.get(str(group_id), [])
+            if subscribed_cities:
+                reply = f"✅ 当前剩余订阅列表：\n{', '.join(subscribed_cities)}"
+            else:
+                reply = "✅ 当前没有订阅任何城市"
         else:
             city = parts[0]
             resp = await self.weather_svc.get_now(city)
@@ -94,7 +122,8 @@ class Handler:
                 f"🌤️ {resp.location.name} 实时天气\n"
                 f"温度：{resp.now.temp}°C（体感 {resp.now.feelsLike}°C）\n"
                 f"天气：{resp.now.text}\n"
-                f"湿度：{resp.now.humidity}%"
+                f"湿度：{resp.now.humidity}%\n"
+                f"风力：{resp.now.windDir} {resp.now.windScale} 级"
             )
 
         await self.client.send_group_msg(group_id, reply)

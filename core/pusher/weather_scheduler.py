@@ -46,7 +46,10 @@ class WeatherScheduler:
         self.scheduler = AsyncIOScheduler(timezone="Asia/Shanghai")
 
     def subscribe(self, group_id: str, *cities: str):
-        self.subscriptions.setdefault(group_id, []).extend(cities)
+        self.subscriptions.setdefault(group_id, [])
+        self.subscriptions[group_id].extend(cities)
+        self.subscriptions[group_id] = list(dict.fromkeys(self.subscriptions[group_id]))  # 去重
+        self.save_subscriptions("cache/weather_subscriptions.json")
 
     def unsubscribe(self, group_id: str, city: str):
         if group_id in self.subscriptions:
@@ -54,6 +57,7 @@ class WeatherScheduler:
                 self.subscriptions[group_id].remove(city)
             except ValueError:
                 pass
+            self.save_subscriptions("cache/weather_subscriptions.json")
 
     @staticmethod
     def load_subscriptions(json_file: str) -> Dict[str, List[str]]:
@@ -61,6 +65,13 @@ class WeatherScheduler:
             return {}
         with open(json_file, "r", encoding="utf-8") as f:
             return json.load(f)
+
+    def save_subscriptions(self, json_file: str):
+        try:
+            with open(json_file, 'w', encoding='utf-8') as f:
+                json.dump(self.subscriptions, f, ensure_ascii=False, indent=2)
+        except Exception as e:
+            print(f"保存订阅信息失败: {e}")
 
     @staticmethod
     def load_warning_cache(json_file: str) -> Dict[str, Set[str]]:
@@ -73,7 +84,7 @@ class WeatherScheduler:
         # set -> list 才能序列化
         os.makedirs(os.path.dirname(json_file), exist_ok=True)
         with open(json_file, "w", encoding="utf-8") as f:
-            json.dump({k: list(v) for k, v in self.warning_cache.items()}, f, ensure_ascii=False)
+            json.dump({k: list(v) for k, v in self.warning_cache.items()}, f, ensure_ascii=False, indent=2)
 
     async def push_daily_forecast(self, group_id: str) -> str:
         cities = self.subscriptions.get(group_id, [])
@@ -148,11 +159,13 @@ class WeatherScheduler:
         self.scheduler.shutdown(wait=True)
 
     async def _send_daily_forecast(self):
+        self._load_new_subscriptions()
         for group_id in self.subscriptions:
             msg = await self.push_daily_forecast(group_id)
             await self.client.send_group_msg(int(group_id), msg)
 
     async def _send_warnings(self):
+        self._load_new_subscriptions()
         self._clean_expired_warnings()
         for group_id in self.subscriptions:
             await self.push_warning_for_group(group_id)
@@ -246,6 +259,9 @@ class WeatherScheduler:
         ]
 
         return "\n".join(lines)
+
+    def _load_new_subscriptions(self):
+        self.subscriptions = self.load_subscriptions("cache/weather_subscriptions.json")
 
     @staticmethod
     def _calc_expire_time(warning: WarningInfo) -> datetime:

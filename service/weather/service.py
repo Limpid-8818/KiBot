@@ -8,6 +8,12 @@ class WeatherService:
     def __init__(self):
         self.client = QWeatherClient()
 
+    async def check_location(self, city: str) -> bool:
+        location = await self.client.get_location(city)
+        if not location:
+            return False
+        return True
+
     async def get_now(self, city: str) -> Optional[WeatherResponse]:
         location = await self.client.get_location(city)
         if not location:
