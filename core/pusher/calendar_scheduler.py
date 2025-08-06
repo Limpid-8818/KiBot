@@ -123,8 +123,8 @@ class CalendarScheduler:
 
             specials = self.list_special(gid)
             if specials:
-                logger.info("Calendar Scheduler", f"群 {gid} 今日特殊日程：{specials}")
-                self.fill_specials(meta_clone, specials)
+                filled = self.fill_specials(meta_clone, specials)
+                logger.info("Calendar Scheduler", f"群 {gid} 今日特殊日程：{filled}")
 
             # 按照信息筛选一次
             should_send = (
@@ -153,10 +153,9 @@ class CalendarScheduler:
             )
 
     @staticmethod
-    def fill_specials(meta: DateMeta, specials: List[Tuple]) -> None:
+    def fill_specials(meta: DateMeta, specials: List[Tuple]) -> List[str]:
         today = meta.date
-        matched: list[str] = []
-
+        specials_should_filled = []
         for date_str, content in specials:
             date_str = date_str.strip()
             # 统一按 YYYY-MM-DD 解析
@@ -169,10 +168,14 @@ class CalendarScheduler:
                     continue
             except ValueError:
                 continue
-
             if d == today:
-                # 追加到克隆实例
-                add_special_info(meta, content)
+                specials_should_filled.append(content)
+
+        for special_content in specials_should_filled:
+            # 追加到克隆实例
+            add_special_info(meta, special_content)
+
+        return specials_should_filled
 
     async def _do_send(self, group_id: int, date_meta: DateMeta):
         msg = await self._build_message(date_meta)
