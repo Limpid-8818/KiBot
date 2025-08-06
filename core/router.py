@@ -24,7 +24,7 @@ class Router:
             bilibili_cmd = re.sub(r'^/b站\s?', '', cleaned_msg).strip()
             await handler.bilibili_handler(message.group_id, bilibili_cmd)
         else:
-            await handler.reply_handler(message.group_id, cleaned_msg)
+            await handler.reply_handler(message.group_id, cleaned_msg, message.user_id)
 
     def should_reply(self, msg: GroupMessage) -> bool:
         return self._at_re.search(msg.raw_message) is not None

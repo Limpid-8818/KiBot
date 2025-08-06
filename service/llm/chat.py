@@ -1,3 +1,6 @@
+from typing import Dict
+
+from langchain_core.chat_history import InMemoryChatMessageHistory
 from langchain_core.messages import SystemMessage, HumanMessage, AIMessage
 from langchain_core.prompts import PromptTemplate
 from langchain_core.runnables import Runnable
@@ -19,6 +22,7 @@ class LLMService:
             timeout=30.0,
             streaming=False,
         )
+        self.session_store: Dict[str, CustomConversationSummaryMemory] = {}
 
     @staticmethod
     def _to_lc_messages(msgs: list[ChatMessage]) -> list[SystemMessage | HumanMessage | AIMessage]:
@@ -41,6 +45,40 @@ class LLMService:
         response = await self.llm.ainvoke(lc_msgs)
         return ChatResponse(reply=response.content)
 
+    async def chat_with_memory(self, msg: str, session_id: str, user_id: str) -> ChatResponse:
+        if session_id not in self.session_store:
+            self.session_store[session_id] = CustomConversationSummaryMemory(self.llm)
+
+        memory = self.session_store[session_id]
+        summary = memory.load_summary()
+
+        prompt_template = """
+                {system_prompt}
+
+                对话历史摘要:
+                {chat_history}
+
+                当前输入: {input}
+                
+                输入包含用户id，但你无需在回复内容中包含类似结构（不用在开头加“希：”）
+                """
+        prompt = PromptTemplate(
+            input_variables=["system_prompt", "chat_history", "input"],
+            template=prompt_template
+        )
+
+        chain = prompt | self.llm
+        response = await chain.ainvoke({
+            "system_prompt": prompts.DEFAULT_SYSTEM_PROMPT,
+            "chat_history": summary,
+            "input": f"{user_id}: {msg}"
+        })
+
+        memory.save_context(f"{user_id}: {msg}", response.content)
+        memory.update_summary()  # 更新摘要
+
+        return ChatResponse(reply=response.content)
+
     async def generate_greeting(self, msg: str) -> ChatResponse:
         prompt = PromptTemplate.from_template(prompts.GREETING_PROMPT).format(content=msg)
         req = ChatRequest(
@@ -51,3 +89,38 @@ class LLMService:
         lc_msgs = self._to_lc_messages(req.messages)
         response = await self.llm.ainvoke(lc_msgs)
         return ChatResponse(reply=response.content)
+
+
+class CustomConversationSummaryMemory:
+    def __init__(self, llm: Runnable):
+        self.llm = llm
+        self.message_history = InMemoryChatMessageHistory()
+        self.summary = ""
+
+    def save_context(self, input_msg: str, output_msg: str):
+        self.message_history.add_user_message(input_msg)
+        self.message_history.add_ai_message(output_msg)
+
+    def load_summary(self) -> str:
+        return self.summary
+
+    def update_summary(self):
+        # 将当前摘要和新对话合并，生成新的摘要
+        messages = self.message_history.messages
+        if self.summary:
+            # 如果已有摘要，将摘要和新对话合并
+            combined_messages = f"{self.summary}\n" + "\n".join([f"{msg.type}: {msg.content}" for msg in messages])
+        else:
+            # 如果没有摘要，直接使用新对话
+            combined_messages = "\n".join([f"{msg.type}: {msg.content}" for msg in messages])
+
+        summary_prompt = PromptTemplate(
+            input_variables=["messages"],
+            template="总结以下的对话内容形成最多200字的摘要，摘要需要尽可能保留对话的关键信息，请注意要明确根据数字（用户id）来区分不同用户所说的内容:\n{messages}"
+        )
+        summary_request = summary_prompt.format(
+            messages=combined_messages
+        )
+        summary_response = self.llm.invoke([SystemMessage(content=summary_request)])
+        self.summary = summary_response.content
+        self.message_history.clear()  # 清空当前对话历史，准备下一轮对话

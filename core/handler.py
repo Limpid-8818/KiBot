@@ -20,8 +20,9 @@ class Handler:
         self.bangumi_scheduler: BangumiScheduler = BangumiScheduler(self.client)
         self.bilibili_scheduler: BilibiliScheduler = BilibiliScheduler(self.client)
 
-    async def reply_handler(self, group_id, msg):
-        resp = await self.llm_svc.chat(msg)
+    async def reply_handler(self, group_id, msg, user_id):
+        # resp = await self.llm_svc.chat(msg)
+        resp = await self.llm_svc.chat_with_memory(msg, group_id, user_id)
         reply: str = resp.reply
         await self.client.send_group_msg(group_id, reply)
 
