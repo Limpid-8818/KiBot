@@ -1,0 +1,12 @@
+APScheduler==3.11.0
+chinese_calendar==1.10.0
+httpx==0.28.1
+langchain_core==0.3.72
+langchain_openai==0.3.28
+playwright==1.54.0
+pycryptodome==3.23.0
+pydantic==2.11.7
+pydantic_settings==2.10.1
+qrcode==8.2
+websockets==15.0.1
+zhdate==0.1
