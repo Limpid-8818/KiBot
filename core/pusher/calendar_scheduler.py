@@ -124,7 +124,8 @@ class CalendarScheduler:
             specials = self.list_special(gid)
             if specials:
                 filled = self.fill_specials(meta_clone, specials)
-                logger.info("Calendar Scheduler", f"群 {gid} 今日特殊日程：{filled}")
+                if filled:
+                    logger.info("Calendar Scheduler", f"群 {gid} 今日特殊日程：{filled}")
 
             # 按照信息筛选一次
             should_send = (
