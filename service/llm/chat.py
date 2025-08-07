@@ -1,14 +1,19 @@
-from typing import Dict
+import asyncio
+import json
+from typing import Dict, Any
 
 from langchain_core.chat_history import InMemoryChatMessageHistory
 from langchain_core.messages import SystemMessage, HumanMessage, AIMessage
+from langchain_core.output_parsers import JsonOutputParser
 from langchain_core.prompts import PromptTemplate
 from langchain_core.runnables import Runnable
 from langchain_openai import ChatOpenAI
 
 from infra.config.settings import settings
-from service.llm.models import ChatMessage, ChatRequest, ChatResponse
+from infra.logger import logger
+from service.llm.models import ChatMessage, ChatRequest, ChatResponse, IntentRecognitionResult
 from service.llm.prompts import prompts
+from service.llm.tools import ToolManager
 
 
 class LLMService:
@@ -22,6 +27,8 @@ class LLMService:
             timeout=30.0,
             streaming=False,
         )
+        self.tool_manager = ToolManager()
+        self.intent_chain: Runnable = self._build_intent_chain()
         self.session_store: Dict[str, CustomConversationSummaryMemory] = {}
 
     @staticmethod
@@ -90,6 +97,79 @@ class LLMService:
         response = await self.llm.ainvoke(lc_msgs)
         return ChatResponse(reply=response.content)
 
+    async def agent_chat(self, msg: str) -> ChatResponse:
+        prompt_template = """
+                {system_prompt}
+                
+                {input}
+                
+                {tool_calling}
+        """
+        prompt = PromptTemplate(
+            template=prompt_template,
+            input_variables=["system_prompt", "input", "tool_calling"],
+        )
+        chain = prompt | self.llm
+
+        ir_output = await self.intent_chain.ainvoke({"user_query": msg})
+        ir_result = IntentRecognitionResult(**ir_output)
+        logger.info("LLM Tool Calling", f"意图识别结果: {ir_output}")
+        if ir_result.should_call_tool and ir_result.tool_name:
+            tool_calling_result = await self.tool_manager.call_tool(ir_result)
+            if tool_calling_result.success:
+                tool_calling_text = self._format_tool_success_response(tool_calling_result.tool_name,
+                                                                       tool_calling_result.result)
+            else:
+                tool_calling_text = self._format_tool_error_response(tool_calling_result.tool_name,
+                                                                     tool_calling_result.error)
+            logger.info("LLM Tool Calling", tool_calling_text)
+        else:
+            tool_calling_text = ""
+
+        response = await chain.ainvoke({
+            "system_prompt": prompts.DEFAULT_SYSTEM_PROMPT,
+            "input": msg,
+            "tool_calling": tool_calling_text,
+        })
+
+        return ChatResponse(reply=response.content)
+
+    # 格式化工具调用成功的响应
+    @staticmethod
+    def _format_tool_success_response(tool_name: str, result: Any) -> str:
+        return f"通过工具「{tool_name}」获取结果：\n{str(result)}"
+
+    # 格式化工具调用失败的响应
+    @staticmethod
+    def _format_tool_error_response(tool_name: str, error: str) -> str:
+        return f"工具「{tool_name}」调用失败：\n{error}"
+
+    def _build_intent_chain(self) -> Runnable:
+        tools_definition = json.dumps([tool.get_definition() for tool in self.tool_manager.tools.values()],
+                                      ensure_ascii=False, indent=2)
+
+        prompt = PromptTemplate(
+            template=prompts.FUNCTION_CALLING_INTENT_PROMPT,
+            input_variables=["tools", "user_query"],
+            partial_variables={"tools": tools_definition},
+        )
+
+        judge_llm = ChatOpenAI(
+            api_key=settings.LLM_API_KEY,
+            base_url=settings.LLM_BASE_URL,
+            model=settings.LLM_MODEL,
+            max_tokens=512,
+            temperature=0.1,  # 使用更低的temperature保证更低的随机性
+            timeout=30.0,
+            streaming=False,
+        )
+
+        parser = JsonOutputParser(pydantic_object=IntentRecognitionResult)
+
+        chain = prompt | judge_llm | parser
+
+        return chain
+
 
 class CustomConversationSummaryMemory:
     def __init__(self, llm: Runnable):
@@ -124,3 +204,12 @@ class CustomConversationSummaryMemory:
         summary_response = self.llm.invoke([SystemMessage(content=summary_request)])
         self.summary = summary_response.content
         self.message_history.clear()  # 清空当前对话历史，准备下一轮对话
+
+
+async def test():
+    svc = LLMService()
+    res = await svc.agent_chat("能帮我查查北京现在有没有什么气象预警消息吗")
+    print(res)
+
+if __name__ == "__main__":
+    asyncio.run(test())

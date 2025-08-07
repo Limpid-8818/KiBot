@@ -47,7 +47,6 @@ class WeatherService:
 
     async def get_storm(self) -> Optional[list[StormResponse]]:
         storms = await self.client.get_active_storm_list()
-        print(storms)
         resp: list[StormResponse] = []
         if not storms:
             return None

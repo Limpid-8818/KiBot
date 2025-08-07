@@ -117,10 +117,8 @@ class QWeatherClient:
     async def get_now_storm_info(self, storm_id: str) -> Optional[StormInfo]:
         url = f"https://{self.api_host}/v7/tropical/storm-track"
         params = {"stormid": storm_id}
-        print(params)
         try:
             resp = await self.client.get(url, params=params)
-            print(resp)
         except httpx.TimeoutException:
             logger.warn("Weather", f"Storm Id [{storm_id}] Get Storm Info Timeout")
             return None

@@ -1,0 +1,235 @@
+from typing import Optional, Dict, List
+
+from service.llm.models import Tool, IntentRecognitionResult, ToolCallResult
+from service.weather.models import WeatherResponse, StormResponse, StormItem, StormInfo
+from service.weather.service import WeatherService
+
+
+class ToolManager:
+    def __init__(self):
+        self.tools: Optional[Dict[str, Tool]] = {
+            "get_today_weather": Tool(
+                name="get_today_weather",
+                description="获取指定城市今天的天气信息",
+                parameters={
+                    "type": "object",
+                    "properties": {
+                        "city": {
+                            "type": "string",
+                            "description": "城市名称"
+                        }
+                    },
+                    "required": ["city"]
+                },
+                func=get_today_weather
+            ),
+            "get_now_weather": Tool(
+                name="get_now_weather",
+                description="获取指定城市的实时天气信息",
+                parameters={
+                    "type": "object",
+                    "properties": {
+                        "city": {
+                            "type": "string",
+                            "description": "城市名称"
+                        }
+                    },
+                    "required": ["city"]
+                },
+                func=get_now_weather
+            ),
+            "get_weather_warning": Tool(
+                name="get_weather_warning",
+                description="获取指定城市实时发布的天气预警信息",
+                parameters={
+                    "type": "object",
+                    "properties": {
+                        "city": {
+                            "type": "string",
+                            "description": "城市名称"
+                        }
+                    },
+                    "required": ["city"]
+                },
+                func=get_weather_warning
+            ),
+            "get_active_storms": Tool(
+                name="get_active_storms",
+                description="获取目前西北太平洋正在活跃的台风/热带风暴的信息",
+                parameters={
+                    "type": "object",
+                    "properties": {},
+                    "required": []
+                },
+                func=get_active_storms
+            )
+        }
+
+    async def call_tool(self, recognition_result: IntentRecognitionResult) -> ToolCallResult:
+        if not recognition_result.should_call_tool or not recognition_result.tool_name:
+            return ToolCallResult(
+                tool_name="",
+                parameters={},
+                success=False,
+                result=None,
+                error="无需调用工具"
+            )
+        tool_name = recognition_result.tool_name
+        if tool_name not in self.tools:
+            return ToolCallResult(
+                tool_name=tool_name,
+                parameters=recognition_result.tool_parameters or {},
+                success=False,
+                result=None,
+                error=f"工具不存在: {tool_name}"
+            )
+        try:
+            tool = self.tools[tool_name]
+            # 调用工具绑定的函数
+            result = await tool.invoke(recognition_result.tool_parameters or {})
+            return ToolCallResult(
+                tool_name=tool_name,
+                parameters=recognition_result.tool_parameters or {},
+                success=True,
+                result=result
+            )
+        except Exception as e:
+            return ToolCallResult(
+                tool_name=tool_name,
+                parameters=recognition_result.tool_parameters or {},
+                success=False,
+                result=None,
+                error=str(e)
+            )
+
+
+async def get_today_weather(city: str) -> str:
+    weather_service = WeatherService()
+    try:
+        location_valid = await weather_service.check_location(city)
+        if not location_valid:
+            raise Exception(f"错误：无法识别城市 '{city}'，请检查城市名称是否正确")
+
+        weather_response: Optional[WeatherResponse] = await weather_service.get_today(city)
+        if not weather_response:
+            raise Exception(f"错误：无法获取城市 '{city}' 今天的天气信息")
+
+        location = weather_response.location
+        daily_forecast = weather_response.daily[0] if weather_response.daily else None
+        if not daily_forecast:
+            raise Exception(f"错误：未获取到 '{location.name}' 今天的具体天气预报")
+
+        # 格式化天气信息
+        return (
+            f"{location.name} 今天的天气情况：\n"
+            f"天气状况：日间{daily_forecast.textDay} / 夜间{daily_forecast.textNight}\n"
+            f"气温范围：{daily_forecast.tempMin}°C ~ {daily_forecast.tempMax}°C\n"
+            f"风向风力：{daily_forecast.windDirDay} {daily_forecast.windScaleDay}级"
+        )
+
+    except Exception as e:
+        # 捕获并处理所有可能的异常
+        raise Exception(f"获取天气信息时发生错误：{str(e)}")
+
+
+async def get_now_weather(city: str) -> str:
+    weather_service = WeatherService()
+    try:
+        location_valid = await weather_service.check_location(city)
+        if not location_valid:
+            raise Exception(f"错误：无法识别城市 '{city}'，请检查城市名称是否正确")
+
+        weather_response: Optional[WeatherResponse] = await weather_service.get_now(city)
+        if not weather_response:
+            raise Exception(f"错误：无法获取城市 '{city}' 的实时天气信息")
+
+        location = weather_response.location
+        weather_now = weather_response.now if weather_response.now else None
+        if not weather_now:
+            raise Exception(f"错误：未获取到 '{location.name}' 的实时天气信息")
+
+        # 格式化天气信息
+        return (
+            f"{location.name} 实时天气\n"
+            f"温度：{weather_now.temp}°C（体感 {weather_now.feelsLike}°C）\n"
+            f"天气：{weather_now.text}\n"
+            f"湿度：{weather_now.humidity}%\n"
+            f"风力：{weather_now.windDir} {weather_now.windScale} 级"
+        )
+
+    except Exception as e:
+        # 捕获并处理所有可能的异常
+        raise Exception(f"获取实时天气信息时发生错误：{str(e)}")
+
+
+async def get_weather_warning(city: str) -> str:
+    weather_service = WeatherService()
+    try:
+        location_valid = await weather_service.check_location(city)
+        if not location_valid:
+            raise Exception(f"错误：无法识别城市 '{city}'，请检查城市名称是否正确")
+
+        warning_response = await weather_service.get_warning(city)
+        if not warning_response:
+            raise Exception(f"错误：无法获取城市 '{city}' 的天气预警信息")
+
+        location = warning_response.location
+        weather_warning = warning_response.warningInfo if warning_response.warningInfo else None
+        if not weather_warning:
+            raise Exception(f"错误：未获取到 '{location.name}' 的天气预警信息")
+
+        alerts = "\n".join([f"{w.title}\n{w.text}" for w in warning_response.warningInfo])
+        return f"{city}的实时天气预警\n{alerts}"
+
+    except Exception as e:
+        raise Exception(f"获取实时天气预警信息时发生错误：{str(e)}")
+
+
+async def get_active_storms() -> str:
+    weather_service = WeatherService()
+    try:
+        # 调用天气服务获取活跃热带风暴列表
+        storm_responses: Optional[List[StormResponse]] = await weather_service.get_storm()
+
+        if not storm_responses:
+            return "当前西北太平洋没有活跃的台风/热带风暴信息"
+
+        result = ["当前活跃台风/热带风暴信息：\n"]
+
+        for idx, storm_resp in enumerate(storm_responses, 1):
+            storm: StormItem = storm_resp.storm
+            info: StormInfo = storm_resp.stormInfo
+
+            # 风暴类型映射
+            storm_type_map = {
+                "TD": "热带低压",
+                "TS": "热带风暴",
+                "STS": "强热带风暴",
+                "TY": "台风",
+                "STY": "强台风",
+                "SuperTY": "超强台风"
+            }
+
+            # 方向映射
+            dir_map = {
+                "N": "北", "NNE": "东北偏北", "NE": "东北", "ENE": "东北偏东",
+                "E": "东", "ESE": "东南偏东", "SE": "东南", "SSE": "东南偏南",
+                "S": "南", "SSW": "西南偏南", "SW": "西南", "WSW": "西南偏西",
+                "W": "西", "WNW": "西北偏西", "NW": "西北", "NNW": "西北偏北"
+            }
+
+            result.append(
+                f"{idx}. {storm.name}\n"
+                f"   类型：{storm_type_map.get(info.type, info.type)}\n"
+                f"   位置：纬度 {info.lat}，经度 {info.lon}\n"
+                f"   中心气压：{info.pressure} hPa\n"
+                f"   最大风速：{info.windSpeed} m/s\n"
+                f"   移动方向：{dir_map.get(info.moveDir, info.moveDir)}（{info.move360}°）\n"
+                f"   移动速度：{info.moveSpeed} km/h\n"
+                f"   发布时间：{info.pubTime}\n"
+            )
+
+        return "\n".join(result)
+
+    except Exception as e:
+        raise Exception(f"获取风暴信息时发生错误：{str(e)}")

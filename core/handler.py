@@ -22,7 +22,8 @@ class Handler:
 
     async def reply_handler(self, group_id, msg, user_id):
         # resp = await self.llm_svc.chat(msg)
-        resp = await self.llm_svc.chat_with_memory(msg, group_id, user_id)
+        # resp = await self.llm_svc.chat_with_memory(msg, group_id, user_id)
+        resp = await self.llm_svc.agent_chat(msg)
         reply: str = resp.reply
         await self.client.send_group_msg(group_id, reply)
 
