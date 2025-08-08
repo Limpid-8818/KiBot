@@ -51,10 +51,14 @@ class ToolCallResult(BaseModel):
     error: Optional[str] = None
 
 
+class ToolCallPlan(BaseModel):
+    """单个工具调用计划"""
+    tool_name: str = Field(..., description="要调用的工具名称")
+    tool_parameters: Dict[str, Any] = Field(..., description="工具调用参数")
+
+
 class IntentRecognitionResult(BaseModel):
     """意图识别结果模型"""
     should_call_tool: bool = Field(..., description="是否需要调用工具")
-    tool_name: Optional[str] = Field(None, description="要调用的工具名称")
-    tool_parameters: Optional[Dict[str, Any]] = Field(None, description="工具调用参数")
-    direct_response: Optional[str] = Field(None, description="如果不需要调用工具，直接返回的响应")
+    tool_calls: List[ToolCallPlan] = Field(default_factory=list, description="工具调用计划列表")
     confidence: float = Field(..., description="识别置信度，0-1之间")

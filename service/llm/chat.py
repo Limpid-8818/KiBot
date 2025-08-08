@@ -114,17 +114,22 @@ class LLMService:
         ir_output = await self.intent_chain.ainvoke({"user_query": msg})
         ir_result = IntentRecognitionResult(**ir_output)
         logger.info("LLM Tool Calling", f"意图识别结果: {ir_output}")
-        if ir_result.should_call_tool and ir_result.tool_name:
-            tool_calling_result = await self.tool_manager.call_tool(ir_result)
-            if tool_calling_result.success:
-                tool_calling_text = self._format_tool_success_response(tool_calling_result.tool_name,
-                                                                       tool_calling_result.result)
-            else:
-                tool_calling_text = self._format_tool_error_response(tool_calling_result.tool_name,
-                                                                     tool_calling_result.error)
+
+        tool_calling_text = ""
+        if ir_result.should_call_tool and ir_result.tool_calls:
+            tool_calling_results = await self.tool_manager.call_tools(ir_result)
+            tool_results = []
+            for result in tool_calling_results:
+                if result.success:
+                    tool_results.append(
+                        self._format_tool_success_response(result.tool_name, result.result)
+                    )
+                else:
+                    tool_results.append(
+                        self._format_tool_error_response(result.tool_name, result.error)
+                    )
+            tool_calling_text = "\n\n".join(tool_results)
             logger.info("LLM Tool Calling", tool_calling_text)
-        else:
-            tool_calling_text = ""
 
         response = await chain.ainvoke({
             "system_prompt": prompts.DEFAULT_SYSTEM_PROMPT,
@@ -208,7 +213,7 @@ class CustomConversationSummaryMemory:
 
 async def test():
     svc = LLMService()
-    res = await svc.agent_chat("能帮我查查北京现在有没有什么气象预警消息吗")
+    res = await svc.agent_chat("能帮我查查北京和上海现在有没有什么气象预警消息吗")
     print(res)
 
 if __name__ == "__main__":

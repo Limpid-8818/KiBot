@@ -65,42 +65,49 @@ class ToolManager:
             )
         }
 
-    async def call_tool(self, recognition_result: IntentRecognitionResult) -> ToolCallResult:
-        if not recognition_result.should_call_tool or not recognition_result.tool_name:
-            return ToolCallResult(
+    async def call_tools(self, recognition_result: IntentRecognitionResult) -> List[ToolCallResult]:
+        results = []
+        if not recognition_result.should_call_tool or not recognition_result.tool_calls:
+            results.append(ToolCallResult(
                 tool_name="",
                 parameters={},
                 success=False,
                 result=None,
                 error="无需调用工具"
-            )
-        tool_name = recognition_result.tool_name
-        if tool_name not in self.tools:
-            return ToolCallResult(
-                tool_name=tool_name,
-                parameters=recognition_result.tool_parameters or {},
-                success=False,
-                result=None,
-                error=f"工具不存在: {tool_name}"
-            )
-        try:
-            tool = self.tools[tool_name]
-            # 调用工具绑定的函数
-            result = await tool.invoke(recognition_result.tool_parameters or {})
-            return ToolCallResult(
-                tool_name=tool_name,
-                parameters=recognition_result.tool_parameters or {},
-                success=True,
-                result=result
-            )
-        except Exception as e:
-            return ToolCallResult(
-                tool_name=tool_name,
-                parameters=recognition_result.tool_parameters or {},
-                success=False,
-                result=None,
-                error=str(e)
-            )
+            ))
+            return results
+
+        for call_plan in recognition_result.tool_calls:
+            tool_name = call_plan.tool_name
+            if tool_name not in self.tools:
+                results.append(ToolCallResult(
+                    tool_name=tool_name,
+                    parameters=call_plan.tool_parameters or {},
+                    success=False,
+                    result=None,
+                    error=f"工具不存在: {tool_name}"
+                ))
+                continue
+
+            try:
+                tool = self.tools[tool_name]
+                result = await tool.invoke(call_plan.tool_parameters or {})
+                results.append(ToolCallResult(
+                    tool_name=tool_name,
+                    parameters=call_plan.tool_parameters or {},
+                    success=True,
+                    result=result
+                ))
+            except Exception as e:
+                results.append(ToolCallResult(
+                    tool_name=tool_name,
+                    parameters=call_plan.tool_parameters or {},
+                    success=False,
+                    result=None,
+                    error=str(e)
+                ))
+
+        return results
 
 
 async def get_today_weather(city: str) -> str:
