@@ -35,16 +35,16 @@ KiBot（中文名 "希"）是一款具有二次元风格的 QQ 群智能机器�
 
 ## 技术栈
 
-- **语言 **：Python
+- **语言**：Python
 - **机器人协议端框架**：NapCat（感谢这个框架，没有它就不会有这个项目的诞生，仓库地址：[NapNeko/NapCatQQ: Modern protocol-side framework based on NTQQ](https://github.com/NapNeko/NapCatQQ)）
-- **自然语言处理 **：langchain
-- **向量存储 **：FAISS
-- **网络请求 **：httpx, websockets
-- **定时任务 **：APScheduler
+- **自然语言处理**：langchain
+- **向量存储**：FAISS
+- **网络请求**：httpx, websockets
+- **定时任务**：APScheduler
 - **浏览器交互**：Playwright
-- **二维码处理 **：qrcode
-- **数据验证 **：Pydantic
-- **embedding 服务 **：Dashscope
+- **二维码处理**：qrcode
+- **数据验证**：Pydantic
+- **embedding 服务**：Dashscope
 
 ## 项目结构
 
