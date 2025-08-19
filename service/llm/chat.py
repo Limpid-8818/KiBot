@@ -213,7 +213,7 @@ class CustomConversationSummaryMemory:
 
 async def test():
     svc = LLMService()
-    res = await svc.agent_chat("能帮我查查北京和上海现在有没有什么气象预警消息吗")
+    res = await svc.agent_chat("能帮我查查人工智能有哪些主要技术分支吗？")
     print(res)
 
 if __name__ == "__main__":

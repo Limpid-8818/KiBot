@@ -1,6 +1,7 @@
 from typing import Optional, Dict, List
 
 from service.llm.models import Tool, IntentRecognitionResult, ToolCallResult
+from service.rag.service import RAGService
 from service.weather.models import WeatherResponse, StormResponse, StormItem, StormInfo
 from service.weather.service import WeatherService
 
@@ -8,6 +9,27 @@ from service.weather.service import WeatherService
 class ToolManager:
     def __init__(self):
         self.tools: Optional[Dict[str, Tool]] = {
+            "rag_query": Tool(
+                name="rag_query",
+                description="使用文档检索系统查询相关知识，当需要回答基于特定文档的问题时使用",
+                parameters={
+                    "type": "object",
+                    "properties": {
+                        "query": {
+                            "type": "string",
+                            "description": "查询的问题或关键词"
+                        },
+                        "top_k": {
+                            "type": "integer",
+                            "description": "返回的相关文档数量，默认3",
+                            "minimum": 1,
+                            "maximum": 5
+                        }
+                    },
+                    "required": ["query"]
+                },
+                func=rag_query
+            ),
             "get_today_weather": Tool(
                 name="get_today_weather",
                 description="获取指定城市今天的天气信息",
@@ -108,6 +130,23 @@ class ToolManager:
                 ))
 
         return results
+
+
+async def rag_query(query: str, top_k: int = 3) -> str:
+    try:
+        rag_service = RAGService()
+        results = rag_service.query(query, top_k)
+
+        if not results:
+            raise Exception("未找到相关文档信息")
+
+        formatted_result = "找到以下相关信息：\n"
+        for i, doc in enumerate(results, 1):
+            formatted_result += f"\n【相关片段 {i}】\n{doc['content']}\n"
+
+        return formatted_result
+    except Exception as e:
+        raise Exception(f"查询失败：{str(e)}")
 
 
 async def get_today_weather(city: str) -> str:

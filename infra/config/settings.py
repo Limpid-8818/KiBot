@@ -19,5 +19,10 @@ class Settings(BaseSettings):
     WEATHER_API_HOST: str = "<URL>"
     WEATHER_API_KEY: str = "<KEY>"
 
+    # Embeddings API
+    EMBEDDINGS_BASE_URL: str = "<BASE_URL>"
+    EMBEDDINGS_API_KEY: str = "<KEY>"
+    EMBEDDINGS_MODEL: str = "<MODEL_NAME>"
+
 
 settings = Settings()
