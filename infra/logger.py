@@ -28,7 +28,7 @@ class Logger:
     def _log(cls, level: Level, module: str, msg: str):
         if cls._level_rank[level] < cls._current_level:
             return
-        ts = datetime.now().strftime("%H:%M:%S")
+        ts = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         line = f"{ts} [{level}] {module} | {msg}"
         colored = _ColoredFormatter.colorize(level, line)
         print(colored, file=sys.stderr)

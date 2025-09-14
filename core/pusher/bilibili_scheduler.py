@@ -142,7 +142,7 @@ class BilibiliScheduler:
         self.scheduler.add_job(
             self._check_all_subscriptions,
             trigger="interval",
-            minutes=5,
+            minutes=30,
             id="check_bilibili_dynamics",
         )
         self.scheduler.start()

@@ -22,7 +22,7 @@ class NapCatWsClient:
                     async for raw in ws:
                         await self._dispatch(raw)
             except Exception as e:
-                print(f"[WS] reconnecting... ({e})")
+                Logger.warn("WebSocket", f"Exception: {e} Trying to reconnect...")
                 await asyncio.sleep(5)
 
     async def _dispatch(self, raw: str):
