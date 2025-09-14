@@ -8,7 +8,9 @@ class Settings(BaseSettings):
 
     # NapCat 网络配置
     NAPCAT_WS: str = "ws://127.0.0.1:3001"
+    NAPCAT_WS_AUTH_TOKEN: str = "<Token>"
     NAPCAT_HTTP: str = "http://127.0.0.1:3000"
+    NAPCAT_HTTP_AUTH_TOKEN: str = "<Token>"
 
     # LLM 相关配置
     LLM_BASE_URL: str = "<BASE_URL>"

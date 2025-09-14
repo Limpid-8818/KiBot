@@ -21,7 +21,7 @@ class Bot:
     @classmethod
     def create(cls) -> "Bot":
         settings = Settings()
-        http_client = NapCatHttpClient(settings.NAPCAT_HTTP)
+        http_client = NapCatHttpClient(settings.NAPCAT_HTTP, settings.NAPCAT_HTTP_AUTH_TOKEN)
         ws_client = None
         login_info = http_client.get_login_info_sync()
         router = Router(login_info["user_id"])
@@ -35,7 +35,7 @@ class Bot:
             Logger.info("Message received", f"[{msg.group_id}:{msg.sender.nickname}({msg.user_id})] {msg.raw_message}")
             await self.router.dispatch(msg, self.handler)
 
-        self.ws_client = NapCatWsClient(self.settings.NAPCAT_WS, on_msg)
+        self.ws_client = NapCatWsClient(self.settings.NAPCAT_WS, self.settings.NAPCAT_WS_AUTH_TOKEN, on_msg)
 
         Logger.info("BotCore", "NapCat登录账号: {}({})".format(self.info["nickname"], self.info["user_id"]))
 

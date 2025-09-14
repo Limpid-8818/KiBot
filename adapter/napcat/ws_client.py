@@ -10,14 +10,16 @@ Handler = Callable[[GroupMessage], Awaitable[None]]
 
 
 class NapCatWsClient:
-    def __init__(self, ws_url: str, handler: Handler):
+    def __init__(self, ws_url: str, auth_token: str, handler: Handler):
         self._url = ws_url
+        self._auth_token = auth_token
         self._handler = handler
 
     async def start(self):
         while True:
             try:
-                async with websockets.connect(self._url) as ws:
+                headers = {"Authorization": f"Bearer {self._auth_token}"}
+                async with websockets.connect(self._url, additional_headers=headers) as ws:
                     Logger.info("WebSocket", "{} Connected".format(self._url))
                     async for raw in ws:
                         await self._dispatch(raw)

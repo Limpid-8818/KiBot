@@ -4,9 +4,10 @@ from infra.logger import Logger
 
 
 class NapCatHttpClient:
-    def __init__(self, http_url):
+    def __init__(self, http_url, auth_token):
         self._http_url = http_url
-        self._client = httpx.AsyncClient(base_url=http_url)
+        self._auth_token = auth_token
+        self._client = httpx.AsyncClient(base_url=http_url, headers={'Authorization': f'Bearer {auth_token}'})
 
     async def get_login_info(self):
         r = await self._client.post("/get_login_info", json={})
@@ -17,7 +18,7 @@ class NapCatHttpClient:
         return data["data"]
 
     def get_login_info_sync(self):
-        with httpx.Client(base_url=str(self._client.base_url)) as client:
+        with httpx.Client(base_url=str(self._client.base_url), headers={'Authorization': f'Bearer {self._auth_token}'}) as client:
             r = client.post("/get_login_info", json={})
             r.raise_for_status()
             data = r.json()
