@@ -1,6 +1,6 @@
 import asyncio
 import json
-from typing import Dict, Any
+from typing import Dict, Any, List
 
 from langchain_core.chat_history import InMemoryChatMessageHistory
 from langchain_core.messages import SystemMessage, HumanMessage, AIMessage
@@ -30,6 +30,9 @@ class LLMService:
         self.tool_manager = ToolManager()
         self.intent_chain: Runnable = self._build_intent_chain()
         self.session_store: Dict[str, CustomConversationSummaryMemory] = {}
+        self.daily_memory_store: Dict[str, List[str]] = {}
+        self.short_memory_store: Dict[str, List[str]] = {}
+        self.short_memory_length: int = 10  # 保留对话轮数
 
     @staticmethod
     def _to_lc_messages(msgs: list[ChatMessage]) -> list[SystemMessage | HumanMessage | AIMessage]:
@@ -97,9 +100,11 @@ class LLMService:
         response = await self.llm.ainvoke(lc_msgs)
         return ChatResponse(reply=response.content)
 
-    async def agent_chat(self, msg: str) -> ChatResponse:
+    async def agent_chat(self, msg: str, group_id: str, user_id) -> ChatResponse:
         prompt_template = """
                 {system_prompt}
+                
+                {history_message}
                 
                 {input}
                 
@@ -107,7 +112,7 @@ class LLMService:
         """
         prompt = PromptTemplate(
             template=prompt_template,
-            input_variables=["system_prompt", "input", "tool_calling"],
+            input_variables=["system_prompt", "history_message", "input", "tool_calling"],
         )
         chain = prompt | self.llm
 
@@ -131,11 +136,17 @@ class LLMService:
             tool_calling_text = "\n\n".join(tool_results)
             logger.info("LLM Tool Calling", tool_calling_text)
 
+        history_message = self.short_memory_store.get(group_id, [])
+        history_message_str = "\n".join(history_message)
+
         response = await chain.ainvoke({
             "system_prompt": prompts.DEFAULT_SYSTEM_PROMPT,
-            "input": msg,
+            "history_message": history_message_str,
+            "input": f"{user_id}: {msg}",
             "tool_calling": tool_calling_text,
         })
+
+        self.update_history_message(group_id, user_id, msg, response.content)
 
         return ChatResponse(reply=response.content)
 
@@ -175,6 +186,40 @@ class LLMService:
 
         return chain
 
+    def update_history_message(self, group_id: str, user_id: str, msg: str, response: str) -> None:
+        history_message = self.short_memory_store.get(group_id, [])
+
+        history_message.append(f"{user_id}: {msg}")
+        history_message.append(f"AI: {response}")
+
+        # 按短记忆长度截断
+        history_message = history_message[-self.short_memory_length * 2:]
+
+        self.short_memory_store[group_id] = history_message
+
+        daily_history_message = self.daily_memory_store.get(group_id, [])
+
+        daily_history_message.append(f"{user_id}: {msg}")
+        daily_history_message.append(f"AI: {response}")
+
+        self.daily_memory_store[group_id] = daily_history_message
+
+    def summarize_daily_memory(self, group_id: str) -> str:
+        daily_history_message = self.daily_memory_store.get(group_id, [])
+        daily_history_message_str = "\n".join(daily_history_message)
+
+        summary_prompt = PromptTemplate(
+            input_variables=["messages"],
+            template="总结以下的对话内容形成对话摘要，摘要需要尽可能保留对话的关键信息，请注意要明确根据数字（用户id）来区分不同用户所说的内容:\n{messages}"
+        )
+        summary_request = summary_prompt.format(messages=daily_history_message_str)
+        summary_response = self.llm.invoke([SystemMessage(summary_request)])
+
+        # 导出摘要后清空日对话记录
+        self.daily_memory_store[group_id] = []
+
+        return summary_response.content
+
 
 class CustomConversationSummaryMemory:
     def __init__(self, llm: Runnable):
@@ -213,7 +258,7 @@ class CustomConversationSummaryMemory:
 
 async def test():
     svc = LLMService()
-    res = await svc.agent_chat("能帮我查查人工智能有哪些主要技术分支吗？")
+    res = await svc.agent_chat("能帮我查查人工智能有哪些主要技术分支吗？", "00000", "11111")
     print(res)
 
 if __name__ == "__main__":
