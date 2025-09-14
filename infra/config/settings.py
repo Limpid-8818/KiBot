@@ -26,5 +26,9 @@ class Settings(BaseSettings):
     EMBEDDINGS_API_KEY: str = "<KEY>"
     EMBEDDINGS_MODEL: str = "<MODEL_NAME>"
 
+    # 联网搜索 API
+    WEB_SEARCH_URL: str = "<URL>"
+    WEB_SEARCH_API_KEY: str = "<KEY>"
+
 
 settings = Settings()
