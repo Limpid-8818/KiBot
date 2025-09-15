@@ -258,7 +258,9 @@ class CustomConversationSummaryMemory:
 
 async def test():
     svc = LLMService()
-    res = await svc.agent_chat("能帮我查查人工智能有哪些主要技术分支吗？", "00000", "11111")
+    msg = "能帮我查查人工智能有哪些主要技术分支吗？"
+    print("User:", msg)
+    res = await svc.agent_chat(msg, "00000", "11111")
     print(res)
 
 if __name__ == "__main__":

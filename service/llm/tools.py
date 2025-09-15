@@ -2,6 +2,7 @@ from typing import Optional, Dict, List
 
 from service.llm.models import Tool, IntentRecognitionResult, ToolCallResult
 from service.rag.service import RAGService
+from service.search.service import SearchService
 from service.weather.models import WeatherResponse, StormResponse, StormItem, StormInfo
 from service.weather.service import WeatherService
 
@@ -84,6 +85,27 @@ class ToolManager:
                     "required": []
                 },
                 func=get_active_storms
+            ),
+            "web_search": Tool(
+                name="web_search",
+                description="检索网络上的相关文本内容，返回搜索结果中的文字片段，适用于需要最新信息或需要网络知识的情况",
+                parameters={
+                    "type": "object",
+                    "properties": {
+                        "query": {
+                            "type": "string",
+                            "description": "搜索的关键词或问题"
+                        },
+                        "count": {
+                            "type": "integer",
+                            "description": "返回的结果数量，默认10",
+                            "minimum": 10,
+                            "maximum": 50
+                        }
+                    },
+                    "required": ["query"]
+                },
+                func=web_search
             )
         }
 
@@ -279,3 +301,24 @@ async def get_active_storms() -> str:
 
     except Exception as e:
         raise Exception(f"获取风暴信息时发生错误：{str(e)}")
+
+
+async def web_search(query: str, count: int = 10) -> str:
+    try:
+        search_service = SearchService()
+
+        # 调用search_for_text方法获取文本片段列表
+        text_summaries = await search_service.search_for_text(query, count)
+
+        if not text_summaries:
+            raise Exception(f"未找到与 '{query}' 相关的文本内容")
+
+        # 格式化结果
+        result = [f"与 '{query}' 相关的搜索结果："]
+        for i, snippet in enumerate(text_summaries, 1):
+            result.append(f"\n【结果 {i}】\n{snippet}")
+
+        return "\n".join(result)
+
+    except Exception as e:
+        raise Exception(f"搜索文本内容时发生错误：{str(e)}")

@@ -10,7 +10,7 @@ from langchain_core.documents import Document
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 from typing_extensions import deprecated
 
-from embeddings import DashScopeEmbeddings
+from .embeddings import DashScopeEmbeddings
 from infra.logger import logger
 
 
