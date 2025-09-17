@@ -267,3 +267,70 @@ class Handler:
         except Exception as e:
             logger.warn("Handler", f"检查UP主 {up_uid} 动态时出错: {e}")
             await self.client.send_group_msg(group_id, "❌ 检查动态时出现错误")
+
+    async def help_handler(self, group_id, help_cmd: str):
+        """处理帮助请求，根据指定的模块返回详细帮助信息"""
+        greet_msg = (
+            "你好呀！😉👋我是你的好伙伴希酱\n"
+            "不知道希酱能为你做什么？请看……\n"
+        )
+        # 基础帮助信息
+        base_help = (
+            "📝 KiBot 帮助中心\n"
+            "使用格式：@我 + /命令 [参数]\n"
+            "可用功能：天气、番剧、B站、帮助\n"
+            "示例：@我 /天气 北京  或  @我 /帮助 天气\n\n"
+        )
+
+        # 天气模块帮助
+        weather_help = (
+            "🌤️ 天气命令\n"
+            "/天气 [城市]         → 查询指定城市实时天气\n"
+            "/天气 预警 [城市]     → 查询指定城市气象预警\n"
+            "/天气 台风           → 查询西北太平洋活跃台风\n"
+            "/天气 订阅 [城市]     → 订阅指定城市天气推送（每日7:30）\n"
+            "/天气 取消订阅 [城市]  → 取消指定城市天气订阅\n"
+            "示例：\n"
+            "  /天气 上海\n"
+            "  /天气 预警 上海\n"
+            "  /天气 订阅 上海 北京\n"
+        )
+
+        # 番剧模块帮助
+        bangumi_help = (
+            "📺 番剧命令\n"
+            "/番剧 今日放送       → 查询今日动画放送信息\n"
+            "/番剧 订阅           → 订阅每日番剧推送（每天8:00）\n"
+            "/番剧 取消订阅       → 取消每日番剧推送\n"
+        )
+
+        # B站模块帮助
+        bilibili_help = (
+            "📺 B站命令\n"
+            "/b站 订阅 [UP主UID]      → 订阅指定UP主动态推送（每5分钟检查）\n"
+            "/b站 取消订阅 [UP主UID]  → 取消指定UP主动态订阅\n"
+            "/b站 查看订阅            → 查看本群订阅的所有UP主\n"
+            "/b站 检查 [UP主UID]      → 手动检查指定UP主最新动态\n"
+        )
+
+        if not help_cmd:
+            # 无指定模块，返回基础帮助+模块列表
+            full_help = greet_msg + base_help + (
+                "🔍 查看模块详情：\n"
+                "  /帮助 天气   → 查看天气功能详细说明\n"
+                "  /帮助 番剧   → 查看番剧功能详细说明\n"
+                "  /帮助 B站    → 查看B站功能详细说明\n"
+                "\n"
+                "如果想要和我聊天的话，直接@我就可以啦！\n"
+                "大家和我说的每一句话，我都会努力记住的！😊"
+            )
+        elif help_cmd == "天气":
+            full_help = base_help + weather_help
+        elif help_cmd in ["番剧", "动画"]:
+            full_help = base_help + bangumi_help
+        elif help_cmd in ["B站", "b站", "哔哩哔哩"]:
+            full_help = base_help + bilibili_help
+        else:
+            full_help = base_help + f"❓ 未找到「{help_cmd}」模块的帮助信息\n请输入正确的模块名称"
+
+        await self.client.send_group_msg(group_id, full_help)

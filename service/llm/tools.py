@@ -106,6 +106,17 @@ class ToolManager:
                     "required": ["query"]
                 },
                 func=web_search
+            ),
+            "show_functions": Tool(
+                name="show_functions",
+                description="当用户询问机器人有什么功能、能做什么、可以提供哪些帮助时，或用户可能需要使用帮助时，"
+                            "或用户询问是否拥有某功能、能否做到某事时，调用此工具获取功能介绍",
+                parameters={
+                    "type": "object",
+                    "properties": {},
+                    "required": []
+                },
+                func=show_functions
             )
         }
 
@@ -322,3 +333,22 @@ async def web_search(query: str, count: int = 10) -> str:
 
     except Exception as e:
         raise Exception(f"搜索文本内容时发生错误：{str(e)}")
+
+
+def show_functions() -> str:
+    """返回机器人可用功能的介绍"""
+    try:
+        functions = """
+    目前可以提供这些帮助哦：
+    1. 日常聊天：陪你闲聊各种话题，分享趣事和梗~
+    2. 天气服务：查询实时天气、今日天气、天气预警，还有台风信息呢
+    3. 文档查询：在知识库中检索特定文档中的相关知识
+    4. 网络搜索：获取最新的网络信息和内容
+    5. 番剧服务：查询今日番剧放送信息，订阅每日推送
+    6. B站服务：订阅UP主动态，及时获取更新提醒
+    
+    查询详细使用方法请@我+输入/帮助
+        """
+        return functions.strip()
+    except Exception as e:
+        raise Exception(f"获取功能列表失败：{str(e)}")
