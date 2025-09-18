@@ -26,7 +26,7 @@ class Bot:
         login_info = http_client.get_login_info_sync()
         router = Router(login_info["user_id"])
         handler = Handler(http_client)
-        pusher = Pusher(http_client)
+        pusher = Pusher(http_client, handler)
         return cls(settings, login_info, router, http_client, ws_client, handler, pusher)
 
     async def start(self):

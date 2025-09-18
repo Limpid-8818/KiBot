@@ -1,7 +1,10 @@
 import asyncio
 import json
+from datetime import timedelta
+from pathlib import Path
 from typing import Dict, Any, List
 
+from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from langchain_core.chat_history import InMemoryChatMessageHistory
 from langchain_core.messages import SystemMessage, HumanMessage, AIMessage
 from langchain_core.output_parsers import JsonOutputParser
@@ -33,6 +36,8 @@ class LLMService:
         self.daily_memory_store: Dict[str, List[str]] = {}
         self.short_memory_store: Dict[str, List[str]] = {}
         self.short_memory_length: int = 10  # 保留对话轮数
+        self.daily_memory_scheduler = AsyncIOScheduler(timezone="Asia/Shanghai")  # 用于定时将日记忆存入文本
+        self.scheduler_start()
 
     @staticmethod
     def _to_lc_messages(msgs: list[ChatMessage]) -> list[SystemMessage | HumanMessage | AIMessage]:
@@ -219,6 +224,50 @@ class LLMService:
         self.daily_memory_store[group_id] = []
 
         return summary_response.content
+
+    def save_daily_memory(self):
+        try:
+            # 获取当前日期
+            from datetime import datetime
+            date = (datetime.now() - timedelta(days=1)).strftime("%Y-%m-%d")
+
+            file_path = Path.cwd() / "rag_docs" / "daily_memory.txt"
+            file_path.parent.mkdir(exist_ok=True)  # 确保 rag_docs 存在
+            file_path.touch(exist_ok=True)  # 确保文件存在
+
+            # 汇总所有群的摘要
+            summaries = []
+            for group_id in list(self.daily_memory_store.keys()):
+                if self.daily_memory_store[group_id]:  # 确保有记录
+                    summary = self.summarize_daily_memory(group_id)
+                    summaries.append(f"【群 {group_id}】\n{summary}\n")
+
+            # 写入
+            if summaries:
+                with open(file_path, "a", encoding="utf-8") as f:
+                    f.write(f"日期：{date}\n")
+                    f.write("=" * 30 + "\n")
+                    f.write("\n".join(summaries))
+                    f.write("=" * 30 + "\n")
+                    logger.info("LLM", f"Daily memory appended. {summaries}")
+            else:
+                logger.info("LLM", "No daily memory to save.")
+
+        except Exception as e:
+            logger.warn("LLM", f"Save daily memory failed. Error:{e}")
+
+    def scheduler_start(self):
+        self.daily_memory_scheduler.add_job(
+            self.save_daily_memory,
+            trigger="cron",
+            hour="2",
+            minute="0",
+            id="save_daily_memory",
+        )
+        self.daily_memory_scheduler.start()
+
+    def scheduler_stop(self):
+        self.daily_memory_scheduler.shutdown()
 
 
 class CustomConversationSummaryMemory:

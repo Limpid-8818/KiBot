@@ -9,8 +9,9 @@ from .bilibili_scheduler import BilibiliScheduler
 
 
 class Pusher:
-    def __init__(self, client):
+    def __init__(self, client, handler):
         self._client = client
+        self._handler = handler
         self._pushers: List[WeatherScheduler | BangumiScheduler | BilibiliScheduler | CalendarScheduler | None] = []
 
     def start(self):
