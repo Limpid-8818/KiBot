@@ -31,6 +31,22 @@ class ToolManager:
                 },
                 func=rag_query
             ),
+            "memory_query": Tool(
+                name="memory_query",
+                description="查询机器人个人长期记忆（daily_memory.txt）中的历史记录，当用户问“我以前说过/记过/提到过…”时,"
+                            "或用户消息可能涉及到对话历史时、时间点时使用",
+                parameters={
+                    "type": "object",
+                    "properties": {
+                        "query": {
+                            "type": "string",
+                            "description": "用户询问的关键词或问题"
+                        }
+                    },
+                    "required": ["query"]
+                },
+                func=memory_query
+            ),
             "get_today_weather": Tool(
                 name="get_today_weather",
                 description="获取指定城市今天的天气信息",
@@ -180,6 +196,24 @@ async def rag_query(query: str, top_k: int = 3) -> str:
         return formatted_result
     except Exception as e:
         raise Exception(f"查询失败：{str(e)}")
+
+
+async def memory_query(query: str) -> str:
+    """
+    调用 RAGService 的 query_for_memory 方法，
+    仅搜索 daily_memory.txt 中的记忆片段
+    """
+    try:
+        rag = RAGService()
+        memories = rag.query_for_memory(query)
+        if not memories:
+            return "没有找到相关记忆片段。"
+
+        lines = [f"{i + 1}. {m['content'].strip()}"
+                 for i, m in enumerate(memories)]
+        return "记忆中的相关内容：\n" + "\n".join(lines)
+    except Exception as e:
+        raise Exception(f"查询记忆失败：{str(e)}")
 
 
 async def get_today_weather(city: str) -> str:

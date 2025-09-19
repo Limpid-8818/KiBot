@@ -2,6 +2,7 @@ import hashlib
 import json
 import os
 import shutil
+from pathlib import Path
 from typing import List, Dict, Any
 
 from langchain_community.document_loaders import DirectoryLoader, TextLoader
@@ -74,6 +75,7 @@ class RAGService:
         documents = loader.load()
 
         # 分割文档并创建索引、保存校验和
+        documents = [self._enrich_metadata(d) for d in documents]
         splits = self.text_splitter.split_documents(documents)
         vector_store = FAISS.from_documents(splits, self.embeddings)
         vector_store.save_local(self.index_dir)
@@ -230,6 +232,13 @@ class RAGService:
 
         return changes
 
+    @staticmethod
+    def _enrich_metadata(doc: Document) -> Document:
+        """为Document添加file_name字段，便于过滤"""
+        file_name = Path(doc.metadata.get("source", "")).name
+        doc.metadata["file_name"] = file_name
+        return doc
+
     def query(self, question: str, top_k: int = 3) -> List[Dict[str, Any]]:
         """查询相关文档片段"""
         docs = self.vector_store.similarity_search(question, k=top_k)
@@ -239,6 +248,25 @@ class RAGService:
                 "metadata": doc.metadata
             } for doc in docs
         ]
+
+    def query_with_filter(self, question: str, query_filter: Dict[str, str], top_k: int = 10) -> List[Dict[str, Any]]:
+        docs = self.vector_store.similarity_search(question, k=top_k, filter=query_filter)
+        return [
+            {
+                "content": doc.page_content,
+                "metadata": doc.metadata
+            } for doc in docs
+        ]
+
+    def query_for_memory(self, question: str, top_k: int = 10) -> List[Dict[str, Any]]:
+        query_results = self.query_with_filter(
+            question,
+            query_filter={
+                "file_name": "daily_memory.txt"
+            },
+            top_k=top_k
+        )
+        return query_results
 
 
 if __name__ == "__main__":
