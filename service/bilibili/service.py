@@ -5,7 +5,9 @@ from typing import Optional, Tuple
 
 from infra.logger import logger
 from .client import BiliClient
-from .models import BiliCookie, DynamicResponse
+from .models import BiliCookie, DynamicListData, DynamicItem, VideoInfo, UserCard
+from .models.common import BiliResponse
+from .renderer import DynamicRenderer, VideoRenderer, RenderedContent
 from .utils.cookie_refresher import CookieRefresher
 from .utils.qrcode_generator import QRCodeGenerator
 
@@ -16,6 +18,9 @@ class BiliService:
         self.cookie_file = "cache/bilibili_cookies.json"
         self.qr_generator = QRCodeGenerator()
         self.cookie_refresher = CookieRefresher(self.client.client)
+        # 渲染器
+        self.dynamic_renderer = DynamicRenderer()
+        self.video_renderer = VideoRenderer()
 
     async def generate_login_qrcode(self) -> Optional[Tuple[str, str]]:
         """
@@ -163,7 +168,7 @@ class BiliService:
         return await self.login_with_qrcode()
 
     async def get_user_dynamics(self, host_mid: int, offset: str = "", update_baseline: str = "") \
-            -> Optional[DynamicResponse]:
+            -> Optional[BiliResponse[DynamicListData]]:
         """
         获取指定UP主的动态列表
         Args:
@@ -171,14 +176,40 @@ class BiliService:
             offset: 分页偏移量
             update_baseline: 更新基线
         Returns:
-            DynamicResponse / None
+            BiliResponse[DynamicListData] / None
         """
         result = await self.ensure_valid_cookies()
         if not result:
             logger.warn("BiliService", "无法获取有效Cookie，无法获取动态")
             return None
-        
+
         cookies, _ = result
-        
+
         # 获取动态
         return await self.client.get_user_dynamics(host_mid, cookies, offset, update_baseline)
+
+    async def get_video_info(self, bvid: str = None, aid: int = None) -> Optional[VideoInfo]:
+        """获取视频信息"""
+        return await self.client.get_video_info(bvid=bvid, aid=aid)
+
+    async def get_user_info(self, mid: int) -> Optional[UserCard]:
+        """获取用户信息"""
+        return await self.client.get_user_info(mid)
+
+    async def get_dynamic_detail(self, dynamic_id: str) -> Optional[DynamicItem]:
+        """获取单条动态详情"""
+        result = await self.ensure_valid_cookies()
+        if not result:
+            logger.warn("BiliService", "无法获取有效Cookie，无法获取动态详情")
+            return None
+
+        cookies, _ = result
+        return await self.client.get_dynamic_detail(dynamic_id, cookies)
+
+    def render_dynamic(self, dynamic: DynamicItem) -> RenderedContent:
+        """渲染动态内容"""
+        return self.dynamic_renderer.render(dynamic)
+
+    def render_video(self, video: VideoInfo) -> RenderedContent:
+        """渲染视频信息"""
+        return self.video_renderer.render(video)

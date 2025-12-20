@@ -1,0 +1,84 @@
+name: "✨ Feature Request"
+description: Suggest a new feature or improvement
+title: "[FEATURE] "
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for your feature suggestion! Please describe your needs in detail to help us understand and implement it better.
+
+  - type: textarea
+    id: summary
+    attributes:
+      label: "Feature Summary"
+      description: Briefly describe the feature you'd like to add
+      placeholder: Describe the feature in one or two sentences...
+    validations:
+      required: true
+
+  - type: textarea
+    id: motivation
+    attributes:
+      label: "Use Case"
+      description: Describe what problem this feature solves or in what scenario it would be used
+      placeholder: |
+        As a user, I want to...
+        So that I can...
+    validations:
+      required: true
+
+  - type: dropdown
+    id: module
+    attributes:
+      label: "Related Module"
+      description: Which module does this feature belong to?
+      options:
+        - Bot Core
+        - Weather Service
+        - Bangumi Service
+        - Bilibili Service
+        - LLM Chat
+        - Scheduled Push
+        - New Module
+        - Other
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposal
+    attributes:
+      label: "Proposed Solution"
+      description: If you have specific implementation ideas, please describe them
+      placeholder: Describe how you think this feature should be implemented...
+    validations:
+      required: false
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: "Alternatives Considered"
+      description: Other solutions you've considered
+      placeholder: Describe other approaches you've thought of...
+    validations:
+      required: false
+
+  - type: dropdown
+    id: willing_to_pr
+    attributes:
+      label: "Willing to Submit PR"
+      description: Would you be willing to implement this feature and submit a PR?
+      options:
+        - Yes, I can submit a PR
+        - No, I hope the maintainers will implement it
+        - I can try with some guidance
+    validations:
+      required: true
+
+  - type: textarea
+    id: additional
+    attributes:
+      label: "Additional Information"
+      description: Any other relevant information, screenshots, or reference links
+    validations:
+      required: false

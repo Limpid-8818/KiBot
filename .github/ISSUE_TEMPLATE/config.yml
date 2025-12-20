@@ -1,0 +1,5 @@
+blank_issues_enabled: false
+contact_links:
+  - name: 📖 查看文档
+    url: https://github.com/Yokumii/KiBot#readme
+    about: 在提交 Issue 之前，请先查阅项目文档

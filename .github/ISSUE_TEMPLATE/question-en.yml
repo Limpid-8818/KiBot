@@ -1,0 +1,72 @@
+name: "❓ Question"
+description: Questions about installation, configuration, or usage
+title: "[QUESTION] "
+labels: ["question"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Before asking, please check the README.md and CLAUDE.md documentation.
+        Your question may already be answered there.
+
+  - type: checkboxes
+    id: checklist
+    attributes:
+      label: "Pre-submission Checklist"
+      options:
+        - label: I have read the README.md
+          required: true
+        - label: I have searched existing Issues
+          required: true
+
+  - type: textarea
+    id: question
+    attributes:
+      label: "Question Description"
+      description: Please describe your question in detail
+      placeholder: Describe the issue you're facing...
+    validations:
+      required: true
+
+  - type: textarea
+    id: tried
+    attributes:
+      label: "What I've Tried"
+      description: What solutions have you already attempted?
+      placeholder: List the methods you've tried...
+    validations:
+      required: false
+
+  - type: dropdown
+    id: category
+    attributes:
+      label: "Question Category"
+      options:
+        - Installation & Deployment
+        - Configuration Issues
+        - NapCat Integration
+        - Feature Usage
+        - Other
+    validations:
+      required: true
+
+  - type: textarea
+    id: environment
+    attributes:
+      label: "Environment Information"
+      description: Please provide your runtime environment information
+      placeholder: |
+        - Python version:
+        - Operating system:
+        - NapCat version:
+        - Connection mode: Webhook / WebSocket
+    validations:
+      required: false
+
+  - type: textarea
+    id: additional
+    attributes:
+      label: "Additional Information"
+      description: Any other information that might be helpful
+    validations:
+      required: false

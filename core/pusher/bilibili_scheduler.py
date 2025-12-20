@@ -8,14 +8,13 @@ from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from adapter.napcat.http_api import NapCatHttpClient
 from infra.logger import logger
 from service.bilibili.service import BiliService
-from service.bilibili.utils.screenshot import BilibiliScreenshot
+from service.bilibili.renderer import RenderedContent
 
 
 class BilibiliScheduler:
     def __init__(self, http_client):
         self.service = BiliService()
         self.client: NapCatHttpClient = http_client
-        self.screenshot = BilibiliScreenshot()
 
         # 群 -> UP主UID列表 映射
         self.subscriptions: Dict[str, List[str]] = {}
@@ -100,34 +99,40 @@ class BilibiliScheduler:
         except Exception as e:
             logger.warn("BilibiliScheduler", f"初始化UP主 {up_uid} 的baseline时出错: {e}")
 
-    async def check_new_dynamics(self, up_uid: str) -> List[str]:
-        """检查UP主是否有新动态，返回新动态的截图路径列表"""
+    async def check_new_dynamics(self, up_uid: str) -> List[RenderedContent]:
+        """检查UP主是否有新动态，返回渲染后的内容列表"""
         try:
             current_baseline = self.update_baselines.get(up_uid, "")
+            logger.debug("BilibiliScheduler", f"UP主 {up_uid} 当前baseline: {current_baseline}")
 
             dynamics = await self.service.get_user_dynamics(int(up_uid))
             if not dynamics or not dynamics.data or not dynamics.data.items:
+                logger.debug("BilibiliScheduler", f"UP主 {up_uid} 获取动态为空")
                 return []
 
-            new_screenshots = []
+            logger.debug("BilibiliScheduler", f"UP主 {up_uid} 获取到 {len(dynamics.data.items)} 条动态")
 
-            latest_dynamic_id = dynamics.data.items[0].id_str
-            if current_baseline != latest_dynamic_id:
-                screenshot_path = await self.screenshot.fetch_dynamic_screenshot(latest_dynamic_id, mode="mobile")
-                if screenshot_path:
-                    new_screenshots.append(screenshot_path)
+            rendered_contents = []
 
-                new_baseline = latest_dynamic_id
-            else:
-                # 没有新动态，保持原来的baseline
-                new_baseline = current_baseline
+            for dynamic in dynamics.data.items:
+                # 检查是否为新动态
+                if dynamic.id_str == current_baseline:
+                    logger.debug("BilibiliScheduler", f"UP主 {up_uid} 已到达baseline，停止检查")
+                    break
 
-            if new_baseline is not None:
+                # 使用渲染器渲染动态内容
+                content = self.service.render_dynamic(dynamic)
+                rendered_contents.append(content)
+
+            # 更新 baseline 为最新动态 ID
+            if dynamics.data.items:
+                new_baseline = dynamics.data.items[0].id_str
+                if new_baseline != current_baseline:
+                    logger.debug("BilibiliScheduler", f"UP主 {up_uid} 更新baseline: {current_baseline} -> {new_baseline}")
                 self.update_baselines[up_uid] = new_baseline
                 self.save_update_baselines()
-                logger.info("BilibiliScheduler", f"UP主 {up_uid} 的baseline已更新: {new_baseline}")
 
-            return new_screenshots
+            return rendered_contents
 
         except Exception as e:
             logger.warn("BilibiliScheduler", f"检查UP主 {up_uid} 新动态时出错: {e}")
@@ -157,37 +162,68 @@ class BilibiliScheduler:
         for group_ups in self.subscriptions.values():
             all_ups.update(group_ups)
 
+        if not all_ups:
+            logger.info("BilibiliScheduler", "没有订阅任何UP主，跳过检查")
+            return
+
+        logger.info("BilibiliScheduler", f"开始检查 {len(all_ups)} 位UP主的动态")
+
         for up_uid in all_ups:
             try:
-                new_screenshots = await self.check_new_dynamics(up_uid)
-                if new_screenshots:
-                    logger.info("BilibiliScheduler", f"UP主 {up_uid} 有新动态，准备推送截图")
-                    # 向所有订阅该UP主的群发送截图
+                new_contents = await self.check_new_dynamics(up_uid)
+                if new_contents:
+                    logger.info("BilibiliScheduler", f"UP主 {up_uid} 有 {len(new_contents)} 条新动态")
+                    # 向所有订阅该UP主的群发送动态内容
                     for group_id, subscribed_ups in self.subscriptions.items():
                         if up_uid in subscribed_ups:
-                            for screenshot_path in new_screenshots:
-                                abs_path = os.path.abspath(screenshot_path)
-                                try:
-                                    # 发送图片文件
-                                    await self.client.send_group_msg(int(group_id),
-                                                                     f"📢 Ki酱提醒您：您关注的UP主动态更新啦"
-                                                                     f"\n[CQ:image,file=file://{abs_path}]")
-                                except Exception as e:
-                                    logger.warn("BilibiliScheduler", f"发送动态截图到群 {group_id} 时出错: {e}")
+                            for content in new_contents:
+                                await self._send_rendered_content(int(group_id), content)
+                else:
+                    logger.debug("BilibiliScheduler", f"UP主 {up_uid} 暂无新动态")
 
             except Exception as e:
                 logger.warn("BilibiliScheduler", f"处理UP主 {up_uid} 动态时出错: {e}")
 
+    async def _send_rendered_content(self, group_id: int, content: RenderedContent):
+        """发送渲染后的内容到群"""
+        try:
+            # 构建消息段：文本 + 图片组合在一条消息中
+            segments = []
+
+            # 添加提醒前缀和动态内容
+            segments.append({
+                "type": "text",
+                "data": {"text": f"📢 Ki酱提醒您：您关注的UP主动态更新啦\n\n{content.text}"}
+            })
+
+            # 添加图片（最多4张，内嵌在同一条消息中）
+            for image_url in content.images[:4]:
+                segments.append({
+                    "type": "image",
+                    "data": {"file": image_url}
+                })
+
+            # 使用消息段格式发送，文本和图片在同一条消息中
+            await self.client.send_group_msg_with_segments(group_id, segments)
+
+        except Exception as e:
+            logger.warn("BilibiliScheduler", f"发送动态到群 {group_id} 时出错: {e}")
+            # 降级：使用简单模式发送
+            try:
+                await self.client.send_group_msg(group_id, f"📢 Ki酱提醒您：您关注的UP主动态更新啦\n\n{content.text}")
+                for image_url in content.images:
+                    await self.client.send_group_msg(group_id, f"[CQ:image,file={image_url}]")
+            except Exception as fallback_e:
+                logger.warn("BilibiliScheduler", f"降级发送也失败: {fallback_e}")
+
     async def send_manual_check(self, group_id: str, up_uid: str) -> str:
         """手动检查UP主最新动态"""
         try:
-            new_screenshots = await self.check_new_dynamics(up_uid)
-            if new_screenshots:
-                for screenshot_path in new_screenshots:
-                    abs_path = os.path.abspath(screenshot_path)
-                    await self.client.send_group_msg(int(group_id),
-                                                     f"📢 Ki酱提醒您：您关注的UP主动态更新啦\n[CQ:image,file=file://{abs_path}]")
-                return "📢 检查完毕：已发送新动态截图"
+            new_contents = await self.check_new_dynamics(up_uid)
+            if new_contents:
+                for content in new_contents:
+                    await self._send_rendered_content(int(group_id), content)
+                return f"📢 检查完毕：已发送 {len(new_contents)} 条新动态"
             else:
                 return "📢 检查完毕：该UP主暂无新动态"
         except Exception as e:

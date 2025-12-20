@@ -1,0 +1,126 @@
+name: "🐛 Bug Report"
+description: Report a bug or unexpected behavior
+title: "[BUG] "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for submitting a bug report! Please fill in the details below to help us identify and fix the issue quickly.
+
+  - type: textarea
+    id: description
+    attributes:
+      label: "Description"
+      description: Please clearly describe the issue you encountered
+      placeholder: Briefly describe the problem...
+    validations:
+      required: true
+
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: "Steps to Reproduce"
+      description: Please provide detailed steps to reproduce the issue
+      value: |
+        1. Send command '...'
+        2. Wait for response '...'
+        3. Observe error '...'
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: "Expected Behavior"
+      description: What did you expect to happen?
+      placeholder: Describe what the correct behavior should be...
+    validations:
+      required: true
+
+  - type: dropdown
+    id: module
+    attributes:
+      label: "Related Module"
+      description: Which module does this issue occur in?
+      multiple: true
+      options:
+        - Bot Core
+        - Weather Service (/天气)
+        - Bangumi Service (/番剧)
+        - Bilibili Service (/b站)
+        - LLM Chat
+        - Scheduled Push
+        - WebSocket Connection
+        - Webhook Connection
+        - Other
+    validations:
+      required: true
+
+  - type: dropdown
+    id: connection_mode
+    attributes:
+      label: "Connection Mode"
+      description: Which connection mode are you using?
+      options:
+        - Webhook
+        - WebSocket
+    validations:
+      required: true
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: "Log Output"
+      description: Please paste relevant log output (set LOG_LEVEL=DEBUG for more detailed logs)
+      render: shell
+    validations:
+      required: false
+
+  - type: textarea
+    id: config
+    attributes:
+      label: "Configuration"
+      description: Please provide relevant configuration (remember to hide sensitive info like API keys)
+      placeholder: |
+        CONNECTION_MODE=webhook
+        LOG_LEVEL=INFO
+        ...
+      render: shell
+    validations:
+      required: false
+
+  - type: input
+    id: python_version
+    attributes:
+      label: "Python Version"
+      description: Output of `python --version`
+      placeholder: "e.g., Python 3.11.5"
+    validations:
+      required: true
+
+  - type: input
+    id: os
+    attributes:
+      label: "Operating System"
+      description: Your OS version
+      placeholder: "e.g., macOS 14.0 / Ubuntu 22.04 / Windows 11"
+    validations:
+      required: true
+
+  - type: input
+    id: napcat_version
+    attributes:
+      label: "NapCat Version"
+      description: Your NapCat version
+      placeholder: "e.g., v1.0.0"
+    validations:
+      required: false
+
+  - type: textarea
+    id: additional
+    attributes:
+      label: "Additional Information"
+      description: Any other information that might be helpful
+    validations:
+      required: false

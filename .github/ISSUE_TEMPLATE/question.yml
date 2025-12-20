@@ -1,0 +1,72 @@
+name: "❓ 使用问题"
+description: 关于安装、配置或使用的问题
+title: "[QUESTION] "
+labels: ["question"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        在提问之前，请先查阅 README.md 和 CLAUDE.md 中的文档。
+        如果是常见问题，可能已经有解答了。
+
+  - type: checkboxes
+    id: checklist
+    attributes:
+      label: "提问前检查"
+      options:
+        - label: 我已经阅读了 README.md
+          required: true
+        - label: 我已经搜索了现有的 Issues
+          required: true
+
+  - type: textarea
+    id: question
+    attributes:
+      label: "问题描述"
+      description: 请详细描述你的问题
+      placeholder: 描述你遇到的问题...
+    validations:
+      required: true
+
+  - type: textarea
+    id: tried
+    attributes:
+      label: "已尝试的方法"
+      description: 你已经尝试了哪些解决方法？
+      placeholder: 列出你尝试过的方法...
+    validations:
+      required: false
+
+  - type: dropdown
+    id: category
+    attributes:
+      label: "问题类别"
+      options:
+        - 安装部署
+        - 配置问题
+        - NapCat 对接
+        - 功能使用
+        - 其他
+    validations:
+      required: true
+
+  - type: textarea
+    id: environment
+    attributes:
+      label: "环境信息"
+      description: 请提供你的运行环境信息
+      placeholder: |
+        - Python 版本:
+        - 操作系统:
+        - NapCat 版本:
+        - 连接模式: Webhook / WebSocket
+    validations:
+      required: false
+
+  - type: textarea
+    id: additional
+    attributes:
+      label: "补充信息"
+      description: 其他任何可能有帮助的信息
+    validations:
+      required: false

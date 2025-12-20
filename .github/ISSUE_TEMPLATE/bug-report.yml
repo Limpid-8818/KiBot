@@ -1,0 +1,126 @@
+name: "🐛 Bug 报告"
+description: 报告一个 Bug 或异常行为
+title: "[BUG] "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        感谢你提交 Bug 报告！请尽可能详细地填写以下信息，帮助我们快速定位和修复问题。
+
+  - type: textarea
+    id: description
+    attributes:
+      label: "问题描述"
+      description: 请清晰描述你遇到的问题
+      placeholder: 简明扼要地描述问题现象...
+    validations:
+      required: true
+
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: "复现步骤"
+      description: 请提供详细的复现步骤
+      value: |
+        1. 发送命令 '...'
+        2. 等待响应 '...'
+        3. 观察到错误 '...'
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: "期望行为"
+      description: 你期望发生什么？
+      placeholder: 描述正确的行为应该是什么...
+    validations:
+      required: true
+
+  - type: dropdown
+    id: module
+    attributes:
+      label: "相关功能模块"
+      description: 问题出现在哪个功能模块？
+      multiple: true
+      options:
+        - 核心框架 (Bot Core)
+        - 天气服务 (/天气)
+        - 番剧服务 (/番剧)
+        - B站服务 (/b站)
+        - LLM 对话
+        - 定时推送
+        - WebSocket 连接
+        - Webhook 连接
+        - 其他
+    validations:
+      required: true
+
+  - type: dropdown
+    id: connection_mode
+    attributes:
+      label: "连接模式"
+      description: 你使用的连接模式是？
+      options:
+        - Webhook
+        - WebSocket
+    validations:
+      required: true
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: "日志输出"
+      description: 请粘贴相关的日志输出（设置 LOG_LEVEL=DEBUG 可获取更详细的日志）
+      render: shell
+    validations:
+      required: false
+
+  - type: textarea
+    id: config
+    attributes:
+      label: "相关配置"
+      description: 请提供相关的配置信息（注意隐藏敏感信息如 API Key）
+      placeholder: |
+        CONNECTION_MODE=webhook
+        LOG_LEVEL=INFO
+        ...
+      render: shell
+    validations:
+      required: false
+
+  - type: input
+    id: python_version
+    attributes:
+      label: "Python 版本"
+      description: 运行 `python --version` 的输出
+      placeholder: "例如: Python 3.11.5"
+    validations:
+      required: true
+
+  - type: input
+    id: os
+    attributes:
+      label: "操作系统"
+      description: 你的操作系统版本
+      placeholder: "例如: macOS 14.0 / Ubuntu 22.04 / Windows 11"
+    validations:
+      required: true
+
+  - type: input
+    id: napcat_version
+    attributes:
+      label: "NapCat 版本"
+      description: 你使用的 NapCat 版本
+      placeholder: "例如: v1.0.0"
+    validations:
+      required: false
+
+  - type: textarea
+    id: additional
+    attributes:
+      label: "补充信息"
+      description: 其他任何可能有帮助的信息
+    validations:
+      required: false

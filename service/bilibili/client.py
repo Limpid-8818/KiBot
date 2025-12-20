@@ -6,8 +6,9 @@ from urllib.parse import urlparse, parse_qs
 from infra.logger import logger
 from .models import (
     QRCodeGenerateResponse, QRCodePollResponse, BiliCookie,
-    DynamicResponse
+    DynamicListData, DynamicItem, VideoInfo, UserCard
 )
+from .models.common import BiliResponse
 
 """
 相关 API 参考 
@@ -42,7 +43,7 @@ class BiliClient:
 
         try:
             response = await self.client.get(url)
-        except httpx.Timeout:
+        except httpx.TimeoutException:
             logger.warn("BiliClient", "生成二维码超时")
             return None
         except Exception as e:
@@ -79,7 +80,7 @@ class BiliClient:
 
         try:
             response = await self.client.get(url, params=params)
-        except httpx.Timeout:
+        except httpx.TimeoutException:
             logger.warn("BiliClient", "轮询二维码超时")
             return None
         except Exception as e:
@@ -182,7 +183,7 @@ class BiliClient:
 
     # -----------------这是一条获取动态部分的分割线----------------- #
     async def get_user_dynamics(self, host_mid: int, cookies: BiliCookie, offset: str = "",
-                                update_baseline: str = "") -> Optional[DynamicResponse]:
+                                update_baseline: str = "") -> Optional[BiliResponse[DynamicListData]]:
         """
         获取指定UP主的动态列表
         Args:
@@ -191,7 +192,7 @@ class BiliClient:
             offset: 分页偏移量
             update_baseline: 更新基线（被坑了，这个 API 的这个参数根本没有限制作用）
         Returns:
-            DynamicResponse / None
+            BiliResponse[DynamicListData] / None
         """
         url = f"{self.api_base_url}/x/polymer/web-dynamic/v1/feed/all"
 
@@ -208,16 +209,11 @@ class BiliClient:
         if update_baseline:
             params["update_baseline"] = update_baseline
 
-        cookie_dict = {
-            "SESSDATA": cookies.SESSDATA,
-            "bili_jct": cookies.bili_jct,
-            "DedeUserID": cookies.DedeUserID,
-            "DedeUserID__ckMd5": cookies.DedeUserID__ckMd5
-        }
+        cookie_dict = cookies.to_dict()
 
         try:
             response = await self.client.get(url, params=params, cookies=cookie_dict)
-        except httpx.Timeout:
+        except httpx.TimeoutException:
             logger.warn("BiliClient", f"获取UP主 {host_mid} 动态超时")
             return None
         except Exception as e:
@@ -230,7 +226,8 @@ class BiliClient:
 
         try:
             data = response.json()
-            dynamic_response = DynamicResponse(**data)
+            # 解析为通用响应，data 字段为 DynamicListData
+            dynamic_response = BiliResponse[DynamicListData](**data)
         except Exception as e:
             logger.warn("BiliClient", f"解析UP主 {host_mid} 动态响应失败: {e}")
             return None
@@ -242,6 +239,189 @@ class BiliClient:
         return dynamic_response
 
     # -----------------获取动态部分到此结束----------------- #
+
+    # -----------------这是一条获取视频信息部分的分割线----------------- #
+    async def get_video_info(self, bvid: str = None, aid: int = None) -> Optional[VideoInfo]:
+        """
+        获取视频详细信息
+        API: https://api.bilibili.com/x/web-interface/view
+        """
+        url = f"{self.api_base_url}/x/web-interface/view"
+        params = {}
+        if bvid:
+            params["bvid"] = bvid
+        elif aid:
+            params["aid"] = aid
+        else:
+            return None
+
+        try:
+            response = await self.client.get(url, params=params)
+        except httpx.TimeoutException:
+            logger.warn("BiliClient", f"获取视频 {bvid or aid} 信息超时")
+            return None
+        except Exception as e:
+            logger.warn("BiliClient", f"获取视频 {bvid or aid} 信息失败: {e}")
+            return None
+
+        if response.status_code != 200:
+            logger.warn("BiliClient", f"获取视频 {bvid or aid} 信息失败: HTTP {response.status_code}")
+            return None
+
+        try:
+            data = response.json()
+            if data.get("code") == 0 and data.get("data"):
+                return VideoInfo(**data["data"])
+            else:
+                logger.warn("BiliClient", f"获取视频信息失败: {data.get('message')}")
+        except Exception as e:
+            logger.warn("BiliClient", f"解析视频信息失败: {e}")
+        return None
+
+    # -----------------获取视频信息部分到此结束----------------- #
+
+    # -----------------这是一条获取用户信息部分的分割线----------------- #
+    async def get_user_info(self, mid: int) -> Optional[UserCard]:
+        """
+        获取用户名片信息
+        API: https://api.bilibili.com/x/web-interface/card
+        """
+        url = f"{self.api_base_url}/x/web-interface/card"
+        params = {"mid": mid, "photo": "true"}
+
+        try:
+            response = await self.client.get(url, params=params)
+        except httpx.TimeoutException:
+            logger.warn("BiliClient", f"获取用户 {mid} 信息超时")
+            return None
+        except Exception as e:
+            logger.warn("BiliClient", f"获取用户 {mid} 信息失败: {e}")
+            return None
+
+        if response.status_code != 200:
+            logger.warn("BiliClient", f"获取用户 {mid} 信息失败: HTTP {response.status_code}")
+            return None
+
+        try:
+            data = response.json()
+            if data.get("code") == 0 and data.get("data"):
+                return UserCard(**data["data"])
+            else:
+                logger.warn("BiliClient", f"获取用户信息失败: {data.get('message')}")
+        except Exception as e:
+            logger.warn("BiliClient", f"解析用户信息失败: {e}")
+        return None
+
+    async def get_dynamic_detail(self, dynamic_id: str, cookies: BiliCookie) -> Optional[DynamicItem]:
+        """
+        获取单条动态详情
+        API: https://api.bilibili.com/x/polymer/web-dynamic/v1/detail
+        """
+        url = f"{self.api_base_url}/x/polymer/web-dynamic/v1/detail"
+        params = {"id": dynamic_id}
+
+        cookie_dict = cookies.to_dict()
+
+        try:
+            response = await self.client.get(url, params=params, cookies=cookie_dict)
+        except httpx.TimeoutException:
+            logger.warn("BiliClient", f"获取动态 {dynamic_id} 详情超时")
+            return None
+        except Exception as e:
+            logger.warn("BiliClient", f"获取动态 {dynamic_id} 详情失败: {e}")
+            return None
+
+        if response.status_code != 200:
+            logger.warn("BiliClient", f"获取动态 {dynamic_id} 详情失败: HTTP {response.status_code}")
+            return None
+
+        try:
+            data = response.json()
+            if data.get("code") == 0 and data.get("data", {}).get("item"):
+                return DynamicItem(**data["data"]["item"])
+            else:
+                logger.warn("BiliClient", f"获取动态详情失败: {data.get('message')}")
+        except Exception as e:
+            logger.warn("BiliClient", f"解析动态详情失败: {e}")
+        return None
+
+    # -----------------获取用户信息部分到此结束----------------- #
+
+
+    # -----------------直播间部分----------------- #
+
+    async def get_live_status_by_uids(self, uids: list[int]) -> dict[int, "LiveRoomInfo"]:
+        """
+        批量查询用户直播状态
+        API: https://api.live.bilibili.com/room/v1/Room/get_status_info_by_uids
+        Args:
+            uids: UP主UID列表
+        Returns:
+            {uid: LiveRoomInfo} 映射
+        """
+        from .models import LiveRoomInfo
+
+        url = "https://api.live.bilibili.com/room/v1/Room/get_status_info_by_uids"
+
+        try:
+            response = await self.client.post(url, json={"uids": uids})
+        except httpx.TimeoutException:
+            logger.warn("BiliClient", "批量查询直播状态超时")
+            return {}
+        except Exception as e:
+            logger.warn("BiliClient", f"批量查询直播状态失败: {e}")
+            return {}
+
+        if response.status_code != 200:
+            logger.warn("BiliClient", f"批量查询直播状态失败: HTTP {response.status_code}")
+            return {}
+
+        try:
+            data = response.json()
+            if data.get("code") == 0 and data.get("data"):
+                result = {}
+                for uid_str, info in data["data"].items():
+                    uid = int(uid_str)
+                    result[uid] = LiveRoomInfo(**info)
+                return result
+            else:
+                logger.warn("BiliClient", f"批量查询直播状态失败: {data.get('message')}")
+        except Exception as e:
+            logger.warn("BiliClient", f"解析直播状态响应失败: {e}")
+        return {}
+
+    async def get_live_room_by_mid(self, mid: int) -> "LiveRoomOldInfo | None":
+        """
+        获取用户对应的直播间状态
+        API: https://api.live.bilibili.com/room/v1/Room/getRoomInfoOld
+        """
+        from .models import LiveRoomOldInfo
+
+        url = "https://api.live.bilibili.com/room/v1/Room/getRoomInfoOld"
+        params = {"mid": mid}
+
+        try:
+            response = await self.client.get(url, params=params)
+        except httpx.TimeoutException:
+            logger.warn("BiliClient", f"获取用户 {mid} 直播间状态超时")
+            return None
+        except Exception as e:
+            logger.warn("BiliClient", f"获取用户 {mid} 直播间状态失败: {e}")
+            return None
+
+        if response.status_code != 200:
+            logger.warn("BiliClient", f"获取用户 {mid} 直播间状态失败: HTTP {response.status_code}")
+            return None
+
+        try:
+            data = response.json()
+            if data.get("code") == 0 and data.get("data"):
+                return LiveRoomOldInfo(**data["data"])
+            else:
+                logger.warn("BiliClient", f"获取直播间状态失败: {data.get('message')}")
+        except Exception as e:
+            logger.warn("BiliClient", f"解析直播间状态响应失败: {e}")
+        return None
 
     async def close(self):
         """关闭客户端"""

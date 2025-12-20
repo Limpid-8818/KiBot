@@ -3,35 +3,32 @@ from typing import List
 
 from infra.logger import logger
 from .calendar_scheduler import CalendarScheduler
-from .weather_scheduler import WeatherScheduler
-from .bangumi_scheduler import BangumiScheduler
-from .bilibili_scheduler import BilibiliScheduler
 
 
 class Pusher:
     def __init__(self, client, handler):
         self._client = client
         self._handler = handler
-        self._pushers: List[WeatherScheduler | BangumiScheduler | BilibiliScheduler | CalendarScheduler | None] = []
+        self._pushers = []
 
     def start(self):
-        # 1. 实例化推送器
-        weather_push = WeatherScheduler(self._client)
-        bangumi_push = BangumiScheduler(self._client)
-        bilibili_push = BilibiliScheduler(self._client)
+        # 复用 Handler 的调度器实例
+        # 日历调度器不需要订阅管理，独立创建
         calendar_push = CalendarScheduler(self._client)
-        
-        # 2. 启动协程
-        weather_push.start()
-        bangumi_push.start()
-        bilibili_push.start()
+
+        # 启动各调度器
+        self._handler.weather_scheduler.start()
+        self._handler.bangumi_scheduler.start()
+        self._handler.bilibili_scheduler.start()
+        self._handler.live_scheduler.start()
         calendar_push.start()
-        
-        self._pushers.append(weather_push)
-        self._pushers.append(bangumi_push)
-        self._pushers.append(bilibili_push)
+
+        self._pushers.append(self._handler.weather_scheduler)
+        self._pushers.append(self._handler.bangumi_scheduler)
+        self._pushers.append(self._handler.bilibili_scheduler)
+        self._pushers.append(self._handler.live_scheduler)
         self._pushers.append(calendar_push)
-        
+
         logger.info("Pusher", "Pusher Start")
 
     async def stop(self):
